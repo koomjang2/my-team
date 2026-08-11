@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
-import { RANK_COLORS, STATUS_ACTIVE, STATUS_LABEL } from '../engine/ranks.js'
+import { RANK_COLORS, STATUS_ACTIVE, STATUS_LABEL, isNonRank, rankDisplay } from '../engine/ranks.js'
 import { makeLayout } from './treeLayout.js'
 import TreeConnectors from './TreeConnectors.jsx'
 import NodeEditorPopover from './NodeEditorPopover.jsx'
+import CopyableId from './CopyableId.jsx'
 import { usePanZoom } from './usePanZoom.js'
 
 const CARD_WIDTH = 104
@@ -14,9 +15,10 @@ function NodeCard({
   onOpenEditor, onOpenMemo, onAddLeft, onAddRight, onRemove, canAddLeft, canAddRight,
 }) {
   const colorClass = RANK_COLORS[node.rank] ?? 'bg-gray-100 text-gray-700 border-gray-300'
-  const isConsumer = node.rank === 'CSM'
-  // 계획한 직급에 실제로 도달하는지 — 오른쪽 실질 계보도와 같은 판정
-  const achieved = isConsumer || gap?.achieved
+  // 없음/소비자는 직급 판정 대상이 아니다
+  const nonRank = isNonRank(node.rank)
+  // 명목 직급에 실제로 도달하는지 — 오른쪽 실질 계보도와 같은 판정
+  const achieved = nonRank || gap?.achieved
 
   return (
     <div className="relative z-10 flex flex-col items-center hover:z-[500]">
@@ -34,8 +36,8 @@ function NodeCard({
         title="터치하면 달성할 직급을 선택합니다"
       >
         <div className="flex items-center justify-center gap-1">
-          <span className="text-xs font-bold">{node.rank}</span>
-          {!isConsumer && (
+          <span className="text-xs font-bold">{rankDisplay(node.rank)}</span>
+          {!nonRank && (
             <span
               className={`rounded px-1 text-[9px] leading-tight ${
                 node.status === STATUS_ACTIVE ? 'bg-sky-600/15 text-sky-800' : 'bg-amber-500/20 text-amber-800'
@@ -47,9 +49,9 @@ function NodeCard({
         </div>
 
         <div className="mt-0.5 truncate text-xs font-semibold">{node.name || '이름 없음'}</div>
-        <div className="truncate text-[9px] text-gray-500">{node.memberId || 'ID 없음'}</div>
+        <CopyableId value={node.memberId} />
 
-        {!isConsumer && (
+        {!nonRank && (
           <div
             className={`mt-0.5 truncate text-[9px] font-medium ${achieved ? 'text-emerald-700' : 'text-rose-600'}`}
           >
@@ -235,7 +237,9 @@ export default function OrgTreePanel({
   return (
     <aside className="org-tree-panel no-print flex w-full flex-shrink-0 flex-col border-b bg-white md:w-1/2 md:border-b-0 md:border-r">
       <div className="flex flex-col justify-between gap-1 border-b px-3 py-2 lg:flex-row lg:items-center">
-        <span className="text-[11px] font-bold uppercase text-gray-500">계보도 구성</span>
+        <span className="text-[11px] font-bold uppercase text-gray-500">
+          계보도 구성 <span className="font-normal normal-case text-gray-400">· 명목 직급</span>
+        </span>
         <div className="flex gap-1 overflow-x-auto pb-1 lg:pb-0">
           <button onClick={onSaveTree} className="glass-btn h-7 min-w-fit px-2 text-[10px]">🗂 저장</button>
           <button onClick={onLoadTree} className="glass-btn h-7 min-w-fit px-2 text-[10px]">📂 열기</button>

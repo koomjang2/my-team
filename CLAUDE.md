@@ -7,12 +7,21 @@
 `atomy-simul` 의 조직트리 UI(팬/줌/이진 배치)를 응용해 만들었으나, 별도 저장소이며
 날짜별 PV 배분 최적화 엔진은 가져오지 않았다. 이 앱은 **자동 최적화가 아니라 구조 설계**가 목적이다.
 
+## 명목 직급 vs 실질 직급 (이 앱의 축)
+| | 왼쪽 '계보도 구성' | 오른쪽 '실질 직급 계보도' |
+|---|---|---|
+| 보여주는 값 | **명목 직급** `node.rank` — 사용자가 지정 | **실질 직급** — 조건을 실제로 만족한 직급만 |
+| 선택 가능 | 없음 / CSM / SSM~IM (10종) | (표시 전용, 선택 불가) |
+
+오른쪽 패널에는 명목 직급을 표기하지 않는다. 두 패널을 나란히 놓고 비교하는 것이 설계 의도다.
+
 ## 계보도의 3가지 분류
 | 분류 | 표현 방식 |
 |------|-----------|
 | 1. 실질적으로 나와 직급을 맞추고 있는 사업자 | 직급(SSM~IM) + `status: 'active'` |
 | 2. 앞으로 나와 직급을 맞추게 될 예비 사업자 | 직급(SSM~IM) + `status: 'prospect'` |
 | 3. 내가 신경써야 할 소비자 | `rank: 'CSM'` (직급자 아님) |
+| (미지정) | `rank: 'NONE'` — 아직 명목 직급을 안 정한 자리 |
 
 ## 기술 스택
 - React + Vite, Tailwind CSS
@@ -23,7 +32,10 @@
 
 ### 직급 체계 (낮은 순)
 SSM → SM → DM → SRM → STM → RM → CM → IM
-(CSM 은 직급이 아니라 소비자 분류다. 자격 판정에 절대 포함되지 않는다.)
+
+`NONE`(없음, 레벨 -1) 과 `CSM`(소비자, 레벨 0) 은 직급이 아니다. SSM(1) 미만이라
+어떤 자격 판정에도 포함되지 않는다. 다만 레그 카운팅은 이런 노드를 **건너뛰고 그 아래까지
+계속 내려가므로**, 중간에 소비자나 미지정 자리가 있어도 하위 직급자는 그대로 집계된다.
 
 ### 달성 조건
 - **SSM**: 보름 소실적 좌/우 각 150만 PV
@@ -44,7 +56,8 @@ SSM → SM → DM → SRM → STM → RM → CM → IM
 ## 절대 규칙 (코딩 시 반드시 준수)
 - 몸PV는 항상 좌/우 중 더 적은 쪽(소실적)에 합산. 동일하면 우에 합산.
 - **DM 이상 직급자는 몸PV로 직급 달성 불가.** 몸PV 입력란은 SSM/SM 에만 표시.
-- CSM(소비자)은 어떤 직급 자격에도 카운트되지 않는다.
+- CSM(소비자)·NONE(없음)은 어떤 직급 자격에도 카운트되지 않는다.
+- 오른쪽 실질 계보도에 명목 직급을 노출하지 않는다.
 - 실질 직급은 하위에만 의존하므로 아래에서 위로 한 번에 확정된다 (순환 없음).
 
 ## 구조
@@ -54,8 +67,9 @@ src/engine/rankEngine.js     실질 직급 계산 · 레그 카운팅 · 부족�
 src/engine/rankEngine.test.js 문서 인원 수치 대조 검증
 src/components/OrgTreePanel.jsx      좌: 계보도 구성 (카드 터치 → 직급 선택)
 src/components/EffectiveTreePanel.jsx 우: 실질 직급 계보도 (좌측에서 파생, 자동 반영)
-src/components/NodeEditorPopover.jsx 직급 9종 선택 + 이름/ID/분류/PV
-src/components/MemoSnackbar.jsx      메모 스낵바 (수정 / 닫기)
+src/components/NodeEditorPopover.jsx 명목 직급 10종 선택 + 이름/ID/분류/PV
+src/components/MemoSnackbar.jsx      메모 스낵바 (수정 / 닫기) — 양쪽 패널에서 연다
+src/components/CopyableId.jsx        회원 ID + 복사 아이콘 (clipboard API, execCommand 폴백)
 src/components/usePanZoom.js         팬 + 휠줌 + 핀치줌 (두 패널 공용)
 src/components/treeLayout.js         이진 트리 폭 계산 (두 패널 공용)
 ```

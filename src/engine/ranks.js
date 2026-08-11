@@ -1,9 +1,16 @@
 // 애터미 직급 체계 정의
 //
-// CSM 은 직급자가 아니라 "직급자를 위한 주요 소비자" 를 나타내는 분류다.
-// 레벨 0 을 주어 SSM(1) 이상의 자격 판정에는 절대 포함되지 않게 한다.
+// 이 앱은 두 가지 직급을 구분한다.
+//   명목 직급(node.rank) — 왼쪽 '계보도 구성'에서 사용자가 지정하는 값
+//   실질 직급(effective) — 달성 조건을 실제로 만족해 오른쪽 패널에 표시되는 값
+//
+// NONE('없음') 과 CSM('소비자') 은 직급자가 아니다.
+// SSM(1) 미만의 레벨을 주어 어떤 자격 판정에도 포함되지 않게 한다.
+
+export const RANK_NONE = 'NONE'
 
 export const RANK_LEVEL = {
+  NONE: -1,
   CSM: 0,
   SSM: 1,
   SM: 2,
@@ -15,13 +22,14 @@ export const RANK_LEVEL = {
   IM: 8,
 }
 
-/** 선택 가능한 전체 분류 (직급 8개 + 소비자) */
-export const ALL_RANKS = ['CSM', 'SSM', 'SM', 'DM', 'SRM', 'STM', 'RM', 'CM', 'IM']
+/** 명목 직급으로 고를 수 있는 전체 분류 (없음 + 소비자 + 직급 8개) */
+export const ALL_RANKS = ['NONE', 'CSM', 'SSM', 'SM', 'DM', 'SRM', 'STM', 'RM', 'CM', 'IM']
 
-/** 실제 직급 (소비자 제외) — 낮은 직급부터 */
+/** 실제 직급 (없음·소비자 제외) — 낮은 직급부터 */
 export const BUSINESS_RANKS = ['SSM', 'SM', 'DM', 'SRM', 'STM', 'RM', 'CM', 'IM']
 
 export const RANK_LABEL = {
+  NONE: '없음',
   CSM: '소비자',
   SSM: '세미세일즈마스터',
   SM: '세일즈마스터',
@@ -34,6 +42,7 @@ export const RANK_LABEL = {
 }
 
 export const RANK_SHORT_LABEL = {
+  NONE: '미지정',
   CSM: '소비자',
   SSM: '세미',
   SM: '판매사',
@@ -65,6 +74,7 @@ export const RANK_RULES = {
 export const BODY_PV_RANKS = ['SSM', 'SM']
 
 export const RANK_COLORS = {
+  NONE: 'bg-white text-gray-400 border-dashed border-gray-300',
   CSM: 'bg-slate-100 text-slate-500 border-slate-300',
   SSM: 'bg-gray-200 text-gray-700 border-gray-400',
   SM: 'bg-blue-100 text-blue-800 border-blue-400',
@@ -97,4 +107,15 @@ export function canUseBodyPv(rank) {
 export function defaultTargetMan(rank) {
   const rule = RANK_RULES[rank]
   return rule?.type === 'pv' ? rule.targetMan : 0
+}
+
+/** 직급자가 아닌 분류 (없음 / 소비자) */
+export function isNonRank(rank) {
+  return rank === RANK_NONE || rank === 'CSM'
+}
+
+/** 화면 표기용 — NONE 은 '없음' 으로 보여준다 */
+export function rankDisplay(rank) {
+  if (!rank) return '—'
+  return rank === RANK_NONE ? '없음' : rank
 }

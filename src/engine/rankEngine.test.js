@@ -121,6 +121,35 @@ console.log('\n=== 소비자(CSM) 는 자격에 포함되지 않는다 ===')
   check('CSM 은 SM 으로 카운트 안 됨', countQualifiersInLeg(nodes, 'l1', 2, eff), 0)
 }
 
+console.log("\n=== '없음'(NONE) 명목 직급 ===")
+{
+  const sm = (id, parentId, side) => ({ id, parentId, side, rank: 'SM', leftMan: 250, rightMan: 250, bodyMan: 0 })
+  const nodes = [
+    { id: 'me', parentId: null, side: null, rank: 'DM' },
+    { id: 'L1', parentId: 'me', side: 'left', rank: 'NONE', leftMan: 999, rightMan: 999, bodyMan: 999 },
+    sm('L2', 'L1', 'left'), sm('L3', 'L2', 'left'),
+    sm('R1', 'me', 'right'), sm('R2', 'R1', 'right'),
+  ]
+  const eff = computeEffectiveRanks(nodes)
+  check('NONE 은 PV 가 아무리 많아도 직급 없음', eff.get('L1'), 'NONE')
+  check('NONE 은 자격자로 세지 않는다', countQualifiersInLeg(nodes, 'L1', 2, eff), 2)
+  check('NONE 을 건너뛰고 그 아래까지 집계 → DM 달성', eff.get('me'), 'DM')
+}
+{
+  // 중간의 NONE 이 하위 집계를 막아버리면 안 된다
+  const sm = (id, parentId, side) => ({ id, parentId, side, rank: 'SM', leftMan: 250, rightMan: 250, bodyMan: 0 })
+  const nodes = [
+    { id: 'me', parentId: null, side: null, rank: 'DM' },
+    { id: 'L1', parentId: 'me', side: 'left', rank: 'NONE' },
+    sm('L2', 'L1', 'left'),
+    { id: 'R1', parentId: 'me', side: 'right', rank: 'CSM', consumerMan: 300 },
+    sm('R2', 'R1', 'right'), sm('R3', 'R2', 'right'),
+  ]
+  const eff = computeEffectiveRanks(nodes)
+  check('NONE 아래 SM 1명뿐 → 좌 부족으로 DM 불가', eff.get('me'), null)
+  check('CSM 아래 SM 2명은 정상 집계', countQualifiersInLeg(nodes, 'R1', 2, eff), 2)
+}
+
 console.log('\n=== 롤업 · 중첩 카운팅 (문서 인원 수치 대조) ===')
 {
   const dm = headcount('DM')

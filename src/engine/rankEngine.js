@@ -3,6 +3,7 @@ import {
   BUSINESS_RANKS,
   RANK_RULES,
   canUseBodyPv,
+  isNonRank,
 } from './ranks.js'
 
 /**
@@ -90,10 +91,11 @@ export function computeEffectiveRanks(nodes) {
     if (left) resolve(left.id)
     if (right) resolve(right.id)
 
-    // 소비자는 직급 판정 대상이 아니다
-    if (node.rank === 'CSM') {
-      effRankMap.set(nodeId, 'CSM')
-      return 'CSM'
+    // 없음/소비자는 직급 판정 대상이 아니다 — 명목 분류를 그대로 실질로 넘긴다.
+    // 레그 카운팅은 이런 노드를 건너뛰고 그 아래까지 계속 내려가므로 하위는 그대로 집계된다.
+    if (isNonRank(node.rank)) {
+      effRankMap.set(nodeId, node.rank)
+      return node.rank
     }
 
     // 낮은 직급부터 검사해 만족하는 가장 높은 직급을 실질 직급으로 삼는다
@@ -120,7 +122,8 @@ export function computeEffectiveRanks(nodes) {
  * @returns { achieved, shortfalls: string[], detail }
  */
 export function analyzeGap(nodes, node, goalRank, effRankMap) {
-  if (!goalRank || goalRank === 'CSM') {
+  // 없음/소비자는 달성할 조건 자체가 없다
+  if (!goalRank || isNonRank(goalRank)) {
     return { achieved: true, shortfalls: [], detail: null }
   }
 

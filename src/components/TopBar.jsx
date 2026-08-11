@@ -1,4 +1,7 @@
-import { BUSINESS_RANKS, RANK_COLORS, RANK_SHORT_LABEL } from '../engine/ranks.js'
+import { BUSINESS_RANKS, RANK_COLORS, RANK_SHORT_LABEL, RANK_NONE } from '../engine/ranks.js'
+
+// 아직 정하지 않은 상태도 고를 수 있어야 한다
+const GOAL_RANKS = [RANK_NONE, ...BUSINESS_RANKS]
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1)
 
@@ -12,12 +15,14 @@ export default function TopBar({ me, period, onUpdateMe, onChangePeriod, onOpenM
         <span className="text-[10px] font-semibold uppercase text-gray-500">달성하고자 하는 직급</span>
         <select
           className={`h-8 rounded-lg border-2 px-2 text-sm font-bold outline-none ${RANK_COLORS[me?.rank] ?? 'border-gray-300 bg-white'}`}
-          value={me?.rank ?? 'SM'}
+          value={me?.rank ?? RANK_NONE}
           onChange={(e) => onUpdateMe({ rank: e.target.value })}
         >
-          {BUSINESS_RANKS.map((r) => (
+          {/* 트리에서 나를 소비자로 바꿨을 때도 값이 비지 않도록 */}
+          {me?.rank === 'CSM' && <option value="CSM">CSM (소비자)</option>}
+          {GOAL_RANKS.map((r) => (
             <option key={r} value={r}>
-              {r} ({RANK_SHORT_LABEL[r]})
+              {r === RANK_NONE ? '없음' : `${r} (${RANK_SHORT_LABEL[r]})`}
             </option>
           ))}
         </select>

@@ -218,6 +218,7 @@ export default function App() {
           gapMap={gapMap}
           selectedId={selectedId}
           onSelect={setSelectedId}
+          onOpenMemo={(id) => setMemoNodeId(id)}
           rootNode={me}
         />
       </div>
