@@ -138,9 +138,10 @@ export default function EffectiveTreePanel({ nodes, effRankMap, gapMap, selected
               {rootGap.detail.rightCount}/{rootRule.count}명
             </div>
           )}
-          {rootRule?.type === 'pv' && rootGap?.detail && (
+          {rootRule?.type === 'pv' && (
             <div className="mt-1 text-[11px] text-gray-700">
-              몸PV 반영 후 좌 {rootGap.detail.effLeft}만 · 우 {rootGap.detail.effRight}만 (각 {rootRule.targetMan}만 필요)
+              좌/우 각 {rootRule.targetMan}만 PV 필요
+              {rootGap?.detail?.memberPvMan > 0 && ` · 회원PV ${rootGap.detail.memberPvMan}만`}
             </div>
           )}
           {!rootGap?.achieved && rootGap?.shortfalls?.length > 0 && (

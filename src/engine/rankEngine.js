@@ -2,20 +2,8 @@ import {
   RANK_LEVEL,
   BUSINESS_RANKS,
   RANK_RULES,
-  canUseBodyPv,
   isNonRank,
 } from './ranks.js'
-
-/**
- * 몸PV 는 항상 좌/우 중 더 적은 쪽(소실적)에 합산한다. 동일하면 우에 합산.
- * (프로젝트 절대 규칙)
- */
-export function applyBodyPv(leftMan, rightMan, bodyMan) {
-  const body = Math.max(0, bodyMan || 0)
-  if (rightMan < leftMan) return { effLeft: leftMan, effRight: rightMan + body }
-  if (leftMan < rightMan) return { effLeft: leftMan + body, effRight: rightMan }
-  return { effLeft: leftMan, effRight: rightMan + body }
-}
 
 function childOf(nodes, parentId, side) {
   return nodes.find((n) => n.parentId === parentId && n.side === side) ?? null
@@ -48,12 +36,16 @@ export function countQualifiersInLeg(nodes, rootId, minLevel, effRankMap) {
   )
 }
 
-/** PV 타입 직급(SSM/SM) 달성 여부 */
+/**
+ * PV 타입 직급(SSM/SM) 달성 여부.
+ *
+ * 이 앱은 좌/우 PV 를 직접 입력받지 않는다 — 계보도 구조를 짜는 도구이기 때문이다.
+ * 따라서 "그 사람을 그 직급으로 보내기로 정했는가"(달성할 직급 = node.rank)로 판정한다.
+ * SM 으로 지정하면 SM 조건(좌/우 각 250만)을 채운다는 전제이고,
+ * 그 위 DM 이상은 이 전제 위에서 구조 조건으로 검증된다.
+ */
 function meetsPvRank(node, rank) {
-  const rule = RANK_RULES[rank]
-  const body = canUseBodyPv(rank) ? node.bodyMan || 0 : 0
-  const { effLeft, effRight } = applyBodyPv(node.leftMan || 0, node.rightMan || 0, body)
-  return effLeft >= rule.targetMan && effRight >= rule.targetMan
+  return (RANK_LEVEL[node.rank] ?? -1) >= RANK_LEVEL[rank]
 }
 
 /** leg 타입 직급(DM 이상) 달성 여부 */
@@ -130,16 +122,13 @@ export function analyzeGap(nodes, node, goalRank, effRankMap) {
   const rule = RANK_RULES[goalRank]
   if (!rule) return { achieved: true, shortfalls: [], detail: null }
 
+  // SSM/SM 은 좌/우 PV 를 입력받지 않으므로 지정한 것 자체가 곧 달성 전제다.
+  // 조건 수치는 화면에 안내용으로만 내보낸다.
   if (rule.type === 'pv') {
-    const body = canUseBodyPv(goalRank) ? node.bodyMan || 0 : 0
-    const { effLeft, effRight } = applyBodyPv(node.leftMan || 0, node.rightMan || 0, body)
-    const shortfalls = []
-    if (effLeft < rule.targetMan) shortfalls.push(`좌 ${rule.targetMan - effLeft}만 PV 부족`)
-    if (effRight < rule.targetMan) shortfalls.push(`우 ${rule.targetMan - effRight}만 PV 부족`)
     return {
-      achieved: shortfalls.length === 0,
-      shortfalls,
-      detail: { type: 'pv', effLeft, effRight, targetMan: rule.targetMan },
+      achieved: true,
+      shortfalls: [],
+      detail: { type: 'pv', targetMan: rule.targetMan, memberPvMan: node.memberPvMan || 0 },
     }
   }
 

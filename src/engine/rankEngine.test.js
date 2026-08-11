@@ -7,7 +7,7 @@
 // 이 수치가 안 맞으면 레그 카운팅 규칙이 틀린 것이다.
 
 import { RANK_RULES } from './ranks.js'
-import { computeEffectiveRanks, countQualifiersInLeg, applyBodyPv } from './rankEngine.js'
+import { computeEffectiveRanks, countQualifiersInLeg } from './rankEngine.js'
 
 let seq = 0
 const nid = () => `t${++seq}`
@@ -35,17 +35,11 @@ function check(label, actual, expected) {
  */
 function buildMinimal(rank, nodes, parentId = null, side = null) {
   const rule = RANK_RULES[rank]
-  const node = {
-    id: nid(), parentId, side, name: rank, rank,
-    leftMan: 0, rightMan: 0, bodyMan: 0,
-  }
+  const node = { id: nid(), parentId, side, name: rank, rank, memberPvMan: 0 }
   nodes.push(node)
 
-  if (rule.type === 'pv') {
-    node.leftMan = rule.targetMan
-    node.rightMan = rule.targetMan
-    return node
-  }
+  // SSM/SM 은 지정만으로 달성 — 자식이 필요 없다
+  if (rule.type === 'pv') return node
 
   buildNestedPair(rule.requires, nodes, node.id, 'left')
   buildNestedPair(rule.requires, nodes, node.id, 'right')
@@ -88,24 +82,19 @@ function headcount(rootRank) {
   return { rootEffective: eff.get(root.id), counts, total: nodes.length - 1 }
 }
 
-console.log('=== 몸PV 합산 (항상 소실적 쪽) ===')
-check('좌250 우210 몸40 → 우에 합산', applyBodyPv(250, 210, 40), { effLeft: 250, effRight: 250 })
-check('좌210 우250 몸40 → 좌에 합산', applyBodyPv(210, 250, 40), { effLeft: 250, effRight: 250 })
-check('좌250 우250 몸40 → 동일하면 우', applyBodyPv(250, 250, 40), { effLeft: 250, effRight: 290 })
-
-console.log('\n=== PV 직급 달성 ===')
+console.log('=== PV 직급(SSM/SM) — 지정한 것이 곧 달성 전제 ===')
 {
-  const nodes = [{ id: 'a', parentId: null, side: null, rank: 'SM', leftMan: 250, rightMan: 210, bodyMan: 40 }]
-  check('몸PV 히든카드로 SM 달성', computeEffectiveRanks(nodes).get('a'), 'SM')
+  const nodes = [{ id: 'a', parentId: null, side: null, rank: 'SM' }]
+  check('SM 으로 지정하면 실질 SM', computeEffectiveRanks(nodes).get('a'), 'SM')
 }
 {
-  const nodes = [{ id: 'a', parentId: null, side: null, rank: 'SM', leftMan: 250, rightMan: 210, bodyMan: 0 }]
-  check('몸PV 없으면 SSM 까지만', computeEffectiveRanks(nodes).get('a'), 'SSM')
+  const nodes = [{ id: 'a', parentId: null, side: null, rank: 'SSM' }]
+  check('SSM 으로 지정하면 SSM 까지만 (SM 아님)', computeEffectiveRanks(nodes).get('a'), 'SSM')
 }
 {
-  // DM 이상은 몸PV 로 달성 불가 — 구조 조건만 본다
-  const nodes = [{ id: 'a', parentId: null, side: null, rank: 'DM', leftMan: 9999, rightMan: 9999, bodyMan: 9999 }]
-  check('PV 아무리 많아도 하위 없으면 DM 불가 (SM 까지)', computeEffectiveRanks(nodes).get('a'), 'SM')
+  // DM 이상은 구조로만 달성된다 — 하위가 없으면 SM 수준으로 내려앉는다
+  const nodes = [{ id: 'a', parentId: null, side: null, rank: 'DM', memberPvMan: 9999 }]
+  check('회원PV 아무리 많아도 하위 없으면 DM 불가 (SM 까지)', computeEffectiveRanks(nodes).get('a'), 'SM')
 }
 
 console.log('\n=== 소비자(CSM) 는 자격에 포함되지 않는다 ===')
@@ -117,27 +106,27 @@ console.log('\n=== 소비자(CSM) 는 자격에 포함되지 않는다 ===')
     { id: 'r1', parentId: 'r', side: 'right', rank: 'CSM', consumerMan: 500 },
   ]
   const eff = computeEffectiveRanks(nodes)
-  check('CSM 4명이어도 DM 불가', eff.get('r'), null)
+  check('CSM 4명이어도 DM 불가 (SM 까지)', eff.get('r'), 'SM')
   check('CSM 은 SM 으로 카운트 안 됨', countQualifiersInLeg(nodes, 'l1', 2, eff), 0)
 }
 
 console.log("\n=== '없음'(NONE) 명목 직급 ===")
 {
-  const sm = (id, parentId, side) => ({ id, parentId, side, rank: 'SM', leftMan: 250, rightMan: 250, bodyMan: 0 })
+  const sm = (id, parentId, side) => ({ id, parentId, side, rank: 'SM' })
   const nodes = [
     { id: 'me', parentId: null, side: null, rank: 'DM' },
-    { id: 'L1', parentId: 'me', side: 'left', rank: 'NONE', leftMan: 999, rightMan: 999, bodyMan: 999 },
+    { id: 'L1', parentId: 'me', side: 'left', rank: 'NONE', memberPvMan: 9999 },
     sm('L2', 'L1', 'left'), sm('L3', 'L2', 'left'),
     sm('R1', 'me', 'right'), sm('R2', 'R1', 'right'),
   ]
   const eff = computeEffectiveRanks(nodes)
-  check('NONE 은 PV 가 아무리 많아도 직급 없음', eff.get('L1'), 'NONE')
+  check('NONE 은 회원PV 가 아무리 많아도 직급 없음', eff.get('L1'), 'NONE')
   check('NONE 은 자격자로 세지 않는다', countQualifiersInLeg(nodes, 'L1', 2, eff), 2)
   check('NONE 을 건너뛰고 그 아래까지 집계 → DM 달성', eff.get('me'), 'DM')
 }
 {
   // 중간의 NONE 이 하위 집계를 막아버리면 안 된다
-  const sm = (id, parentId, side) => ({ id, parentId, side, rank: 'SM', leftMan: 250, rightMan: 250, bodyMan: 0 })
+  const sm = (id, parentId, side) => ({ id, parentId, side, rank: 'SM' })
   const nodes = [
     { id: 'me', parentId: null, side: null, rank: 'DM' },
     { id: 'L1', parentId: 'me', side: 'left', rank: 'NONE' },
@@ -146,7 +135,7 @@ console.log("\n=== '없음'(NONE) 명목 직급 ===")
     sm('R2', 'R1', 'right'), sm('R3', 'R2', 'right'),
   ]
   const eff = computeEffectiveRanks(nodes)
-  check('NONE 아래 SM 1명뿐 → 좌 부족으로 DM 불가', eff.get('me'), null)
+  check('NONE 아래 SM 1명뿐 → 좌 부족으로 DM 불가 (SM 까지)', eff.get('me'), 'SM')
   check('CSM 아래 SM 2명은 정상 집계', countQualifiersInLeg(nodes, 'R1', 2, eff), 2)
 }
 
@@ -189,7 +178,7 @@ console.log('\n=== 롤업 · 중첩 카운팅 (문서 인원 수치 대조) ==='
 console.log('\n=== rank_logic.md 의 DM 구조 예시 ===')
 {
   // 나 → 좌(SM1) → 좌의 좌(SM2) / 우(SM1) → 우의 우(SM2)
-  const sm = (id, parentId, side) => ({ id, parentId, side, rank: 'SM', leftMan: 250, rightMan: 250, bodyMan: 0 })
+  const sm = (id, parentId, side) => ({ id, parentId, side, rank: 'SM' })
   const nodes = [
     { id: 'me', parentId: null, side: null, rank: 'DM' },
     sm('L1', 'me', 'left'), sm('L2', 'L1', 'left'),
@@ -199,12 +188,24 @@ console.log('\n=== rank_logic.md 의 DM 구조 예시 ===')
 }
 {
   // 한쪽에만 SM 3명이면 DM 불가 (좌 AND 우 각각 2명)
-  const sm = (id, parentId, side) => ({ id, parentId, side, rank: 'SM', leftMan: 250, rightMan: 250, bodyMan: 0 })
+  const sm = (id, parentId, side) => ({ id, parentId, side, rank: 'SM' })
   const nodes = [
     { id: 'me', parentId: null, side: null, rank: 'DM' },
     sm('L1', 'me', 'left'), sm('L2', 'L1', 'left'), sm('L3', 'L2', 'left'),
   ]
-  check('좌에만 SM 3명 → DM 불가', computeEffectiveRanks(nodes).get('me'), null)
+  check('좌에만 SM 3명 → DM 불가 (SM 까지)', computeEffectiveRanks(nodes).get('me'), 'SM')
+}
+
+console.log('\n=== 명목 직급은 실질 직급과 무관하다 ===')
+{
+  // 명목 STM 이지만 이번 보름 구조상 실질은 DM
+  const sm = (id, parentId, side) => ({ id, parentId, side, rank: 'SM' })
+  const nodes = [
+    { id: 'me', parentId: null, side: null, rank: 'DM', nominalRank: 'STM' },
+    sm('L1', 'me', 'left'), sm('L2', 'L1', 'left'),
+    sm('R1', 'me', 'right'), sm('R2', 'R1', 'right'),
+  ]
+  check('명목 STM · 실질 DM', computeEffectiveRanks(nodes).get('me'), 'DM')
 }
 
 console.log(failures === 0 ? '\n모든 검증 통과' : `\n${failures}건 실패`)

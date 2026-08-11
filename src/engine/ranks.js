@@ -22,8 +22,16 @@ export const RANK_LEVEL = {
   IM: 8,
 }
 
-/** 명목 직급으로 고를 수 있는 전체 분류 (없음 + 소비자 + 직급 8개) */
+/** '달성할 직급 선택' 에서 고를 수 있는 전체 분류 (없음 + 소비자 + 직급 8개) */
 export const ALL_RANKS = ['NONE', 'CSM', 'SSM', 'SM', 'DM', 'SRM', 'STM', 'RM', 'CM', 'IM']
+
+/**
+ * '명목 직급' 으로 고를 수 있는 값 (없음 + 직급 8개 = 9개).
+ * 명목 직급은 그 회원이 이름표로 달고 있는 직급이고, 이번 보름에 실제로 달성하는
+ * 실질 직급과는 별개다. (예: 명목 STM 이지만 이번엔 실질 SRM)
+ * 소비자(CSM)는 명목 직급이 아니므로 제외한다.
+ */
+export const NOMINAL_RANKS = ['NONE', 'SSM', 'SM', 'DM', 'SRM', 'STM', 'RM', 'CM', 'IM']
 
 /** 실제 직급 (없음·소비자 제외) — 낮은 직급부터 */
 export const BUSINESS_RANKS = ['SSM', 'SM', 'DM', 'SRM', 'STM', 'RM', 'CM', 'IM']
@@ -70,8 +78,11 @@ export const RANK_RULES = {
   IM: { type: 'leg', requires: 'CM', count: 2 },
 }
 
-/** 몸PV 를 쓸 수 있는 직급 (DM 이상은 몸PV 로 직급 달성 불가) */
-export const BODY_PV_RANKS = ['SSM', 'SM']
+/**
+ * 회원PV(몸PV) 입력란을 띄우는 직급.
+ * DM 은 몸PV 로 직급을 달성할 수는 없지만 본인 몸PV 자체는 기록해 둔다.
+ */
+export const MEMBER_PV_RANKS = ['SSM', 'SM', 'DM']
 
 export const RANK_COLORS = {
   NONE: 'bg-white text-gray-400 border-dashed border-gray-300',
@@ -99,14 +110,9 @@ export function isBusinessRank(rank) {
   return BUSINESS_RANKS.includes(rank)
 }
 
-export function canUseBodyPv(rank) {
-  return BODY_PV_RANKS.includes(rank)
-}
-
-/** 해당 직급의 기본 목표 PV (만 단위). leg 타입 직급은 PV 목표가 없다. */
-export function defaultTargetMan(rank) {
-  const rule = RANK_RULES[rank]
-  return rule?.type === 'pv' ? rule.targetMan : 0
+/** 회원PV(몸PV) 를 입력받는 직급인가 */
+export function hasMemberPv(rank) {
+  return MEMBER_PV_RANKS.includes(rank)
 }
 
 /** 직급자가 아닌 분류 (없음 / 소비자) */

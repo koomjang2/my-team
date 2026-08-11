@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
-import { RANK_COLORS, STATUS_ACTIVE, STATUS_LABEL, isNonRank, rankDisplay } from '../engine/ranks.js'
+import { RANK_COLORS, RANK_NONE, STATUS_ACTIVE, STATUS_LABEL, hasMemberPv, isNonRank, rankDisplay } from '../engine/ranks.js'
 import { makeLayout } from './treeLayout.js'
 import TreeConnectors from './TreeConnectors.jsx'
 import NodeEditorPopover from './NodeEditorPopover.jsx'
@@ -35,6 +35,11 @@ function NodeCard({
         onClick={onOpenEditor}
         title="터치하면 달성할 직급을 선택합니다"
       >
+        {/* 명목 직급 — 이번에 달성할 직급과 별개로 달고 있는 이름표 */}
+        <div className="truncate text-[9px] leading-tight text-gray-500">
+          명목 {rankDisplay(node.nominalRank ?? RANK_NONE)}
+        </div>
+
         <div className="flex items-center justify-center gap-1">
           <span className="text-xs font-bold">{rankDisplay(node.rank)}</span>
           {!nonRank && (
@@ -50,6 +55,10 @@ function NodeCard({
 
         <div className="mt-0.5 truncate text-xs font-semibold">{node.name || '이름 없음'}</div>
         <CopyableId value={node.memberId} />
+
+        {hasMemberPv(node.rank) && (node.memberPvMan ?? 0) > 0 && (
+          <div className="truncate text-[9px] text-emerald-700">회원PV {node.memberPvMan}만</div>
+        )}
 
         {!nonRank && (
           <div
@@ -237,9 +246,7 @@ export default function OrgTreePanel({
   return (
     <aside className="org-tree-panel no-print flex w-full flex-shrink-0 flex-col border-b bg-white md:w-1/2 md:border-b-0 md:border-r">
       <div className="flex flex-col justify-between gap-1 border-b px-3 py-2 lg:flex-row lg:items-center">
-        <span className="text-[11px] font-bold uppercase text-gray-500">
-          계보도 구성 <span className="font-normal normal-case text-gray-400">· 명목 직급</span>
-        </span>
+        <span className="text-[11px] font-bold uppercase text-gray-500">계보도 구성</span>
         <div className="flex gap-1 overflow-x-auto pb-1 lg:pb-0">
           <button onClick={onSaveTree} className="glass-btn h-7 min-w-fit px-2 text-[10px]">🗂 저장</button>
           <button onClick={onLoadTree} className="glass-btn h-7 min-w-fit px-2 text-[10px]">📂 열기</button>

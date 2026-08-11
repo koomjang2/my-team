@@ -4,7 +4,7 @@ import EffectiveTreePanel from './components/EffectiveTreePanel.jsx'
 import MemoSnackbar from './components/MemoSnackbar.jsx'
 import TopBar from './components/TopBar.jsx'
 import { computeEffectiveRanks, analyzeGap } from './engine/rankEngine.js'
-import { RANK_RULES, STATUS_ACTIVE, defaultTargetMan } from './engine/ranks.js'
+import { RANK_NONE, STATUS_ACTIVE } from './engine/ranks.js'
 
 const STORAGE_KEY = 'my-team-lineage-v1'
 const FILE_FORMAT = 'my-team-lineage-v1'
@@ -18,12 +18,11 @@ function makeNode({ parentId = null, side = null, rank = 'SM', name = '', member
     side,
     name,
     memberId,
-    rank,
+    nominalRank: RANK_NONE, // 달고 있는 이름표 직급
+    rank,                   // 이번 보름에 달성할 직급
     status: STATUS_ACTIVE,
-    leftMan: defaultTargetMan(rank),
-    rightMan: defaultTargetMan(rank),
-    bodyMan: 0,
-    consumerMan: 0,
+    memberPvMan: 0,         // 회원PV(몸PV)
+    consumerMan: 0,         // CSM 의 예상 소비 PV
     memo: '',
   }
 }
@@ -97,23 +96,7 @@ export default function App() {
   }
 
   function handleUpdate(nodeId, patch) {
-    setNodes((prev) =>
-      prev.map((n) => {
-        if (n.id !== nodeId) return n
-        const next = { ...n, ...patch }
-        // 직급이 바뀌면 PV 목표 기본값을 새 직급 기준으로 맞춰준다.
-        // 사용자가 직접 고친 값은 건드리지 않는다.
-        if (patch.rank && patch.rank !== n.rank) {
-          const oldDefault = defaultTargetMan(n.rank)
-          const newDefault = defaultTargetMan(patch.rank)
-          if (!n.leftMan || n.leftMan === oldDefault) next.leftMan = newDefault
-          if (!n.rightMan || n.rightMan === oldDefault) next.rightMan = newDefault
-          // DM 이상은 몸PV 로 직급 달성 불가 — 값 자체를 비운다
-          if (RANK_RULES[patch.rank]?.type !== 'pv') next.bodyMan = 0
-        }
-        return next
-      }),
-    )
+    setNodes((prev) => prev.map((n) => (n.id === nodeId ? { ...n, ...patch } : n)))
   }
 
   function handleSaveMemo(nodeId, memo) {
