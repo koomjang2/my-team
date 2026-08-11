@@ -1,26 +1,52 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import OrgTreePanel from './components/OrgTreePanel.jsx'
+import EffectiveTreePanel from './components/EffectiveTreePanel.jsx'
+import MemoSnackbar from './components/MemoSnackbar.jsx'
+import TopBar from './components/TopBar.jsx'
+import { computeEffectiveRanks, analyzeGap } from './engine/rankEngine.js'
+import { RANK_RULES, STATUS_ACTIVE, defaultTargetMan } from './engine/ranks.js'
 
-const STORAGE_KEY = 'my-team-tree-v1'
-const FILE_FORMAT = 'my-team-tree-v1'
+const STORAGE_KEY = 'my-team-lineage-v1'
+const FILE_FORMAT = 'my-team-lineage-v1'
 
-function makeId() {
-  return 'n_' + Math.random().toString(36).slice(2, 10)
+const makeId = () => 'n_' + Math.random().toString(36).slice(2, 10)
+
+function makeNode({ parentId = null, side = null, rank = 'SM', name = '', memberId = '' } = {}) {
+  return {
+    id: makeId(),
+    parentId,
+    side,
+    name,
+    memberId,
+    rank,
+    status: STATUS_ACTIVE,
+    leftMan: defaultTargetMan(rank),
+    rightMan: defaultTargetMan(rank),
+    bodyMan: 0,
+    consumerMan: 0,
+    memo: '',
+  }
 }
 
-function defaultNodes() {
-  return [{ id: makeId(), parentId: null, side: null, name: '대표', title: '', memo: '', color: 'slate' }]
+function defaultState() {
+  const me = makeNode({ rank: 'DM', name: '나' })
+  return {
+    nodes: [me],
+    period: { year: new Date().getFullYear(), month: new Date().getMonth() + 1, half: 'first' },
+  }
 }
 
-function loadInitialNodes() {
+function loadInitialState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return defaultNodes()
+    if (!raw) return defaultState()
     const parsed = JSON.parse(raw)
-    if (Array.isArray(parsed) && parsed.length) return parsed
-    return defaultNodes()
+    if (Array.isArray(parsed?.nodes) && parsed.nodes.length) {
+      return { ...defaultState(), ...parsed }
+    }
+    return defaultState()
   } catch {
-    return defaultNodes()
+    return defaultState()
   }
 }
 
@@ -33,55 +59,76 @@ function collectSubtreeIds(nodeId, nodes) {
 }
 
 export default function App() {
-  const [nodes, setNodes] = useState(loadInitialNodes)
+  const [state, setState] = useState(loadInitialState)
   const [selectedId, setSelectedId] = useState(null)
+  const [memoNodeId, setMemoNodeId] = useState(null)
   const loadInputRef = useRef(null)
 
+  const { nodes, period } = state
+  const me = nodes.find((n) => !n.parentId) ?? null
+
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(nodes))
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+  }, [state])
+
+  // 계보도가 바뀔 때마다 실질 직급을 다시 계산 — 오른쪽 패널은 이 값에서 파생되므로 자동 반영된다
+  const { effRankMap, gapMap } = useMemo(() => {
+    const effRankMap = computeEffectiveRanks(nodes)
+    const gapMap = new Map()
+    for (const node of nodes) {
+      gapMap.set(node.id, analyzeGap(nodes, node, node.rank, effRankMap))
+    }
+    return { effRankMap, gapMap }
   }, [nodes])
 
-  const selectedNode = nodes.find((n) => n.id === selectedId) ?? null
+  function setNodes(updater) {
+    setState((prev) => ({ ...prev, nodes: typeof updater === 'function' ? updater(prev.nodes) : updater }))
+  }
 
-  function handleAdd(parentId, side, name, title) {
-    const node = { id: makeId(), parentId, side, name, title: title || '', memo: '', color: 'slate' }
-    setNodes((prev) => [...prev, node])
+  function handleAdd(parentId, side) {
+    setNodes((prev) => [...prev, makeNode({ parentId, side, rank: 'SM', name: '' })])
   }
 
   function handleRemove(nodeId) {
-    setNodes((prev) => {
-      const toRemove = new Set(collectSubtreeIds(nodeId, prev))
-      return prev.filter((n) => !toRemove.has(n.id))
-    })
-    if (selectedId && collectSubtreeIds(nodeId, nodes).includes(selectedId)) {
-      setSelectedId(null)
-    }
+    const doomed = new Set(collectSubtreeIds(nodeId, nodes))
+    setNodes((prev) => prev.filter((n) => !doomed.has(n.id)))
+    if (selectedId && doomed.has(selectedId)) setSelectedId(null)
+    if (memoNodeId && doomed.has(memoNodeId)) setMemoNodeId(null)
   }
 
-  function handleChangeColor(nodeId, color) {
-    setNodes((prev) => prev.map((n) => (n.id === nodeId ? { ...n, color } : n)))
+  function handleUpdate(nodeId, patch) {
+    setNodes((prev) =>
+      prev.map((n) => {
+        if (n.id !== nodeId) return n
+        const next = { ...n, ...patch }
+        // 직급이 바뀌면 PV 목표 기본값을 새 직급 기준으로 맞춰준다.
+        // 사용자가 직접 고친 값은 건드리지 않는다.
+        if (patch.rank && patch.rank !== n.rank) {
+          const oldDefault = defaultTargetMan(n.rank)
+          const newDefault = defaultTargetMan(patch.rank)
+          if (!n.leftMan || n.leftMan === oldDefault) next.leftMan = newDefault
+          if (!n.rightMan || n.rightMan === oldDefault) next.rightMan = newDefault
+          // DM 이상은 몸PV 로 직급 달성 불가 — 값 자체를 비운다
+          if (RANK_RULES[patch.rank]?.type !== 'pv') next.bodyMan = 0
+        }
+        return next
+      }),
+    )
   }
 
-  function handleChangeName(nodeId, name) {
-    setNodes((prev) => prev.map((n) => (n.id === nodeId ? { ...n, name } : n)))
-  }
-
-  function handleChangeTitle(nodeId, title) {
-    setNodes((prev) => prev.map((n) => (n.id === nodeId ? { ...n, title } : n)))
-  }
-
-  function handleChangeMemo(nodeId, memo) {
-    setNodes((prev) => prev.map((n) => (n.id === nodeId ? { ...n, memo } : n)))
+  function handleSaveMemo(nodeId, memo) {
+    handleUpdate(nodeId, { memo })
   }
 
   function handleSaveTree() {
     try {
-      const payload = { format: FILE_FORMAT, savedAt: new Date().toISOString(), nodes }
+      const payload = { format: FILE_FORMAT, savedAt: new Date().toISOString(), ...state }
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
+      const half = period.half === 'first' ? '상반기' : '하반기'
       a.href = url
-      a.download = `조직도-${new Date().toISOString().slice(0, 10)}.json`
+      a.download = `실질계보도-${period.year}-${String(period.month).padStart(2, '0')}-${half}.json`
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -91,10 +138,6 @@ export default function App() {
     }
   }
 
-  function handleLoadTree() {
-    loadInputRef.current?.click()
-  }
-
   function handleLoadTreeFile(event) {
     const file = event.target.files?.[0]
     if (!file) return
@@ -102,14 +145,17 @@ export default function App() {
     reader.onload = () => {
       try {
         const parsed = JSON.parse(String(reader.result ?? '{}'))
-        const restored = Array.isArray(parsed?.nodes) ? parsed.nodes : parsed
-        if (!Array.isArray(restored) || !restored.length) {
+        const restoredNodes = Array.isArray(parsed?.nodes) ? parsed.nodes : null
+        if (!restoredNodes?.length) {
           alert('파일 형식이 올바르지 않습니다')
           return
         }
-        setNodes(restored)
+        setState({
+          nodes: restoredNodes,
+          period: parsed.period ?? defaultState().period,
+        })
         setSelectedId(null)
-        alert('파일을 불러왔습니다')
+        setMemoNodeId(null)
       } catch {
         alert('파일 파싱 실패')
       } finally {
@@ -123,18 +169,17 @@ export default function App() {
     reader.readAsText(file, 'utf-8')
   }
 
-  function handlePrintTree() {
-    window.dispatchEvent(new CustomEvent('print-org-tree'))
+  function handleResetTree() {
+    if (!window.confirm('계보도를 초기화할까요? 현재 구성이 모두 삭제됩니다.')) return
+    setState(defaultState())
+    setSelectedId(null)
+    setMemoNodeId(null)
   }
 
-  function handleResetTree() {
-    if (!window.confirm('조직도를 초기화할까요? 현재 구조가 모두 삭제됩니다.')) return
-    setNodes(defaultNodes())
-    setSelectedId(null)
-  }
+  const memoNode = nodes.find((n) => n.id === memoNodeId) ?? null
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
+    <div className="relative flex min-h-screen flex-col bg-slate-50">
       <input
         ref={loadInputRef}
         type="file"
@@ -143,45 +188,45 @@ export default function App() {
         onChange={handleLoadTreeFile}
       />
 
-      <header className="bg-white border-b no-print px-4 py-3 flex items-center gap-2 flex-shrink-0">
-        <span className="text-base font-bold text-gray-800">My Team</span>
-        <span className="text-xs text-gray-400">조직도 빌더</span>
-      </header>
+      <TopBar
+        me={me}
+        period={period}
+        onUpdateMe={(patch) => me && handleUpdate(me.id, patch)}
+        onChangePeriod={(next) => setState((prev) => ({ ...prev, period: next }))}
+        onOpenMemo={() => me && setMemoNodeId(me.id)}
+      />
 
-      <div className="flex flex-col md:flex-row flex-1">
+      <div className="flex flex-1 flex-col md:flex-row">
         <OrgTreePanel
           nodes={nodes}
+          effRankMap={effRankMap}
+          gapMap={gapMap}
           selectedId={selectedId}
-          onSelect={setSelectedId}
           onAdd={handleAdd}
           onRemove={handleRemove}
-          onChangeColor={handleChangeColor}
-          onChangeName={handleChangeName}
-          onChangeTitle={handleChangeTitle}
+          onUpdate={handleUpdate}
+          onOpenMemo={(id) => setMemoNodeId(id)}
           onSaveTree={handleSaveTree}
-          onLoadTree={handleLoadTree}
-          onPrintTree={handlePrintTree}
+          onLoadTree={() => loadInputRef.current?.click()}
+          onPrintTree={() => window.dispatchEvent(new CustomEvent('print-org-tree'))}
           onResetTree={handleResetTree}
         />
 
-        <main className="flex-1 p-4 min-w-0 bg-white">
-          {selectedNode ? (
-            <div className="max-w-md">
-              <h2 className="text-lg font-bold mb-1">{selectedNode.name}</h2>
-              {selectedNode.title && <p className="text-sm text-gray-500 mb-4">{selectedNode.title}</p>}
-              <label className="block text-xs font-semibold text-gray-500 uppercase mb-1">메모</label>
-              <textarea
-                className="w-full border rounded-lg px-3 py-2 text-sm min-h-[140px] outline-none focus:border-sky-400"
-                placeholder="연락처, 담당 업무 등 자유롭게 기록하세요"
-                value={selectedNode.memo ?? ''}
-                onChange={(e) => handleChangeMemo(selectedNode.id, e.target.value)}
-              />
-            </div>
-          ) : (
-            <p className="text-gray-400 p-10 text-center">좌측 조직도에서 구성원을 선택하세요.</p>
-          )}
-        </main>
+        <EffectiveTreePanel
+          nodes={nodes}
+          effRankMap={effRankMap}
+          gapMap={gapMap}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          rootNode={me}
+        />
       </div>
+
+      <MemoSnackbar
+        node={memoNode}
+        onSave={handleSaveMemo}
+        onClose={() => setMemoNodeId(null)}
+      />
     </div>
   )
 }

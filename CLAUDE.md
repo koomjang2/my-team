@@ -1,0 +1,67 @@
+# My Team — 애터미 실질 직급 계보도
+
+## 프로젝트 개요
+애터미 사업자가 **보름(반기) 단위로 직급을 맞추기 위한 실질 계보도를 설계**하는 웹앱.
+"내가 SRM이 되려면 내 계보도에서 누가 DM을 가고 누가 SM을 가야 하는가"를 짜보는 도구다.
+
+`atomy-simul` 의 조직트리 UI(팬/줌/이진 배치)를 응용해 만들었으나, 별도 저장소이며
+날짜별 PV 배분 최적화 엔진은 가져오지 않았다. 이 앱은 **자동 최적화가 아니라 구조 설계**가 목적이다.
+
+## 계보도의 3가지 분류
+| 분류 | 표현 방식 |
+|------|-----------|
+| 1. 실질적으로 나와 직급을 맞추고 있는 사업자 | 직급(SSM~IM) + `status: 'active'` |
+| 2. 앞으로 나와 직급을 맞추게 될 예비 사업자 | 직급(SSM~IM) + `status: 'prospect'` |
+| 3. 내가 신경써야 할 소비자 | `rank: 'CSM'` (직급자 아님) |
+
+## 기술 스택
+- React + Vite, Tailwind CSS
+- 상태: `App.jsx` 의 useState + localStorage 자동 저장
+- 엔진 테스트: `node src/engine/rankEngine.test.js`
+
+## 핵심 도메인 규칙
+
+### 직급 체계 (낮은 순)
+SSM → SM → DM → SRM → STM → RM → CM → IM
+(CSM 은 직급이 아니라 소비자 분류다. 자격 판정에 절대 포함되지 않는다.)
+
+### 달성 조건
+- **SSM**: 보름 소실적 좌/우 각 150만 PV
+- **SM**: 보름 소실적 좌/우 각 250만 PV
+- **DM 이상**: 좌 레그에 직전 직급 2명 이상 **AND** 우 레그에 직전 직급 2명 이상
+  - DM ← SM 2/2, SRM ← DM 2/2, STM ← SRM 2/2, RM ← STM 2/2, CM ← RM 2/2, IM ← CM 2/2
+
+### 레그 카운팅 (`countQualifiersInLeg`) — 이 앱의 심장
+두 규칙이 **동시에** 적용된다:
+1. **롤업**: 상위 직급자는 하위 직급 자격도 만족 (`RANK_LEVEL[실질] >= RANK_LEVEL[필요]`)
+2. **자격자를 만나도 그 아래로 계속 내려가며 센다** — 같은 라인 안에 중첩 가능
+
+이 조합이 문서상 필요 인원(STM = SRM 4 / DM 12 / SM 36)을 만들어낸다.
+상위 직급자가 자기 부모의 하위 직급 자리를 겸하므로 4배가 아니라 **3배씩** 늘어난다.
+`rankEngine.test.js` 가 STM 52명 / RM 160명 / CM 484명 / IM 1,456명을 검증한다.
+**이 테스트가 깨지면 카운팅 규칙이 틀린 것이다.**
+
+## 절대 규칙 (코딩 시 반드시 준수)
+- 몸PV는 항상 좌/우 중 더 적은 쪽(소실적)에 합산. 동일하면 우에 합산.
+- **DM 이상 직급자는 몸PV로 직급 달성 불가.** 몸PV 입력란은 SSM/SM 에만 표시.
+- CSM(소비자)은 어떤 직급 자격에도 카운트되지 않는다.
+- 실질 직급은 하위에만 의존하므로 아래에서 위로 한 번에 확정된다 (순환 없음).
+
+## 구조
+```
+src/engine/ranks.js          직급 정의 · 달성 조건 테이블 · 색상
+src/engine/rankEngine.js     실질 직급 계산 · 레그 카운팅 · 부족분 분석
+src/engine/rankEngine.test.js 문서 인원 수치 대조 검증
+src/components/OrgTreePanel.jsx      좌: 계보도 구성 (카드 터치 → 직급 선택)
+src/components/EffectiveTreePanel.jsx 우: 실질 직급 계보도 (좌측에서 파생, 자동 반영)
+src/components/NodeEditorPopover.jsx 직급 9종 선택 + 이름/ID/분류/PV
+src/components/MemoSnackbar.jsx      메모 스낵바 (수정 / 닫기)
+src/components/usePanZoom.js         팬 + 휠줌 + 핀치줌 (두 패널 공용)
+src/components/treeLayout.js         이진 트리 폭 계산 (두 패널 공용)
+```
+
+## 미구현 / 알려진 범위
+- 반기(상/하반기) 선택은 계획의 **라벨**이다. 날짜별 PV 배분 그리드는 없다.
+  PV 입력값은 보름 소실적 합계 기준.
+- 후원수당 금액 계산 없음. 직급 달성 구조 설계에만 집중.
+- CSM 의 예상 소비 PV 는 입력·보관되지만 상위 노드 PV 로 자동 롤업되지 않는다.
