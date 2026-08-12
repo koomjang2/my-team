@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import OrgTreePanel from './components/OrgTreePanel.jsx'
 import EffectiveTreePanel from './components/EffectiveTreePanel.jsx'
 import MemoSnackbar from './components/MemoSnackbar.jsx'
@@ -8,6 +9,8 @@ import { RANK_NONE, STATUS_ACTIVE } from './engine/ranks.js'
 
 const STORAGE_KEY = 'my-team-lineage-v1'
 const FILE_FORMAT = 'my-team-lineage-v1'
+// 화면 접힘 같은 UI 취향은 계보도 파일과 섞이면 안 되므로 따로 담는다
+const UI_KEY = 'my-team-ui-v1'
 
 const makeId = () => 'n_' + Math.random().toString(36).slice(2, 10)
 
@@ -68,6 +71,23 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null)
   const [memoNodeId, setMemoNodeId] = useState(null)
   const loadInputRef = useRef(null)
+
+  // 맨 위 입력 메뉴 접기 — 좁은 화면에서 계보도에 자리를 내주기 위한 것이라 취향을 기억해 둔다
+  const [menuOpen, setMenuOpen] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(UI_KEY) ?? '{}').menuOpen !== false
+    } catch {
+      return true
+    }
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(UI_KEY, JSON.stringify({ menuOpen }))
+    } catch {
+      /* 저장 실패는 무시 — 접힘 상태를 못 기억할 뿐이다 */
+    }
+  }, [menuOpen])
 
   // 좁은 화면 상하 분할 — 기준선을 끌어 비율을 바꾼다 (기본 절반)
   const [splitPct, setSplitPct] = useState(50)
@@ -225,22 +245,33 @@ export default function App() {
         onChange={handleLoadTreeFile}
       />
 
-      <header className="no-print flex-shrink-0 border-b bg-white px-3 py-1.5">
-        <h1 className="text-[13px] font-bold leading-tight text-gray-800">
+      <header className="no-print flex flex-shrink-0 items-center gap-2 border-b bg-white px-3 py-1.5">
+        <h1 className="min-w-0 flex-1 truncate text-[13px] font-bold leading-tight text-gray-800">
           My Team{' '}
           <span className="font-normal text-gray-500">
             - 나와 함께 하는 회원들을 입력하고 직급을 계획해보세요.
           </span>
         </h1>
+        <button
+          onClick={() => setMenuOpen((open) => !open)}
+          className="glass-btn h-6 shrink-0 gap-0.5 px-1.5 text-[10px] leading-none"
+          title={menuOpen ? '입력 메뉴 접기' : '입력 메뉴 펼치기'}
+          aria-expanded={menuOpen}
+        >
+          {menuOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+          {menuOpen ? '접기' : '펼치기'}
+        </button>
       </header>
 
-      <TopBar
-        me={me}
-        period={period}
-        onUpdateMe={(patch) => me && handleUpdate(me.id, patch)}
-        onChangePeriod={(next) => setState((prev) => ({ ...prev, period: next }))}
-        onOpenMemo={() => me && setMemoNodeId(me.id)}
-      />
+      {menuOpen && (
+        <TopBar
+          me={me}
+          period={period}
+          onUpdateMe={(patch) => me && handleUpdate(me.id, patch)}
+          onChangePeriod={(next) => setState((prev) => ({ ...prev, period: next }))}
+          onOpenMemo={() => me && setMemoNodeId(me.id)}
+        />
+      )}
 
       <div ref={splitAreaRef} className="flex min-h-0 flex-1 flex-col md:flex-row">
         <OrgTreePanel
@@ -255,7 +286,6 @@ export default function App() {
           onOpenMemo={(id) => setMemoNodeId(id)}
           onSaveTree={handleSaveTree}
           onLoadTree={() => loadInputRef.current?.click()}
-          onPrintTree={() => window.dispatchEvent(new CustomEvent('print-org-tree'))}
           onResetTree={handleResetTree}
         />
 
@@ -280,6 +310,9 @@ export default function App() {
           onSelect={setSelectedId}
           onOpenMemo={(id) => setMemoNodeId(id)}
           rootNode={me}
+          onSaveTree={handleSaveTree}
+          onLoadTree={() => loadInputRef.current?.click()}
+          onResetTree={handleResetTree}
         />
       </div>
 

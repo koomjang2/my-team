@@ -1,11 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
 import { RANK_COLORS, RANK_NONE, STATUS_ACTIVE, STATUS_LABEL, hasMemberPv, isNonRank, rankDisplay } from '../engine/ranks.js'
 import { makeLayout } from './treeLayout.js'
 import TreeConnectors from './TreeConnectors.jsx'
 import NodeEditorPopover from './NodeEditorPopover.jsx'
 import CopyableId from './CopyableId.jsx'
+import TreePanelHeader from './TreePanelHeader.jsx'
 import { usePanZoom } from './usePanZoom.js'
+import { usePanelCapture } from './usePanelCapture.js'
 
 const CARD_WIDTH = 104
 const layout = makeLayout({ cardWidth: CARD_WIDTH, emptyLaneWidth: 130, branchGap: 48 })
@@ -187,12 +189,16 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, ha
 export default function OrgTreePanel({
   nodes, effRankMap, gapMap, selectedId,
   onAdd, onRemove, onUpdate, onOpenMemo,
-  onSaveTree, onLoadTree, onPrintTree, onResetTree,
+  onSaveTree, onLoadTree, onResetTree,
   style,
 }) {
   const [editingId, setEditingId] = useState(null)
   const { containerRef, layerRef, onMouseDown, resetView } = usePanZoom()
+  const panelRef = useRef(null)
   const innerRef = useRef(null)
+  const { saveImage, print } = usePanelCapture({
+    panelRef, containerRef, innerRef, imageName: '계보도구성.jpg',
+  })
   const roots = nodes.filter((n) => !n.parentId)
 
   const handlers = {
@@ -203,68 +209,26 @@ export default function OrgTreePanel({
     onOpenEditor: (id) => setEditingId((cur) => (cur === id ? null : id)),
   }
 
-  async function handleSaveImage() {
-    const inner = innerRef.current
-    const container = containerRef.current
-    if (!inner || !container) return
-    const prevTransform = inner.style.transform
-    const prevOverflow = container.style.overflow
-    inner.style.transform = 'none'
-    container.style.overflow = 'visible'
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
-    try {
-      const { toJpeg } = await import('html-to-image')
-      const dataUrl = await toJpeg(inner, {
-        backgroundColor: '#f8fafc', pixelRatio: 2, quality: 0.92,
-        width: inner.scrollWidth, height: inner.scrollHeight,
-      })
-      const a = document.createElement('a')
-      a.download = '실질계보도.jpg'
-      a.href = dataUrl
-      a.click()
-    } catch (e) {
-      alert('이미지 저장 실패: ' + e.message)
-    } finally {
-      inner.style.transform = prevTransform
-      container.style.overflow = prevOverflow
-    }
-  }
-
-  useEffect(() => {
-    function handlePrintEvent() {
-      document.body.classList.add('print-org-tree-mode')
-      const cleanup = () => {
-        document.body.classList.remove('print-org-tree-mode')
-        window.removeEventListener('afterprint', cleanup)
-      }
-      window.addEventListener('afterprint', cleanup)
-      window.print()
-    }
-    window.addEventListener('print-org-tree', handlePrintEvent)
-    return () => window.removeEventListener('print-org-tree', handlePrintEvent)
-  }, [])
-
   return (
     <aside
+      ref={panelRef}
       style={style}
-      className="org-tree-panel split-pane-top no-print flex w-full min-h-0 flex-shrink-0 flex-col overflow-hidden border-b bg-white md:w-1/2 md:border-b-0 md:border-r"
+      className="tree-panel split-pane-top flex w-full min-h-0 flex-shrink-0 flex-col overflow-hidden border-b bg-white md:w-1/2 md:border-b-0 md:border-r"
     >
-      <div className="flex flex-col justify-between gap-1 border-b px-3 py-2 lg:flex-row lg:items-center">
-        <span className="text-[11px] font-bold uppercase text-gray-500">계보도 구성</span>
-        <div className="flex gap-1 overflow-x-auto pb-1 lg:pb-0">
-          <button onClick={onSaveTree} className="glass-btn h-7 min-w-fit px-2 text-[10px]">🗂 저장</button>
-          <button onClick={onLoadTree} className="glass-btn h-7 min-w-fit px-2 text-[10px]">📂 열기</button>
-          <button onClick={onPrintTree} className="glass-btn h-7 min-w-fit px-2 text-[10px]">🖨 인쇄</button>
-          <button onClick={handleSaveImage} className="glass-btn h-7 min-w-fit px-2 text-[10px]">🖼 그림</button>
-          <button onClick={resetView} className="glass-btn h-7 min-w-fit px-2 text-[10px]">🎯 화면</button>
-          <button onClick={onResetTree} className="glass-btn h-7 min-w-fit px-2 text-[10px]">♻ 초기화</button>
-        </div>
-      </div>
+      <TreePanelHeader
+        title="계보도 구성"
+        onSave={onSaveTree}
+        onLoad={onLoadTree}
+        onPrint={print}
+        onImage={saveImage}
+        onFocusRoot={resetView}
+        onReset={onResetTree}
+      />
 
       <div
         ref={containerRef}
         onMouseDown={onMouseDown}
-        className="org-tree-print-area org-tree-pan-area min-h-0 flex-1 overflow-hidden bg-slate-50/30 p-4 md:min-h-[340px]"
+        className="tree-print-area org-tree-pan-area min-h-0 flex-1 overflow-hidden bg-slate-50/30 p-4 md:min-h-[340px]"
       >
         <div ref={layerRef} className="will-change-transform" style={{ transform: 'translate(0px, 0px) scale(1)', transformOrigin: '0 0' }}>
           <div ref={innerRef} className="origin-top scale-[0.85] transform transition-transform md:scale-100">

@@ -1,9 +1,11 @@
-import { useRef } from 'react'
-import { RANK_COLORS, BUSINESS_RANKS, RANK_RULES, isNonRank, rankDisplay } from '../engine/ranks.js'
-import { makeLayout } from './treeLayout.js'
+import { useMemo, useRef } from 'react'
+import { RANK_COLORS, BUSINESS_RANKS, RANK_NONE, RANK_RULES, isNonRank, rankDisplay } from '../engine/ranks.js'
+import { makeLayout, collapseHidden } from './treeLayout.js'
 import TreeConnectors from './TreeConnectors.jsx'
 import CopyableId from './CopyableId.jsx'
+import TreePanelHeader from './TreePanelHeader.jsx'
 import { usePanZoom } from './usePanZoom.js'
+import { usePanelCapture } from './usePanelCapture.js'
 
 const CARD_WIDTH = 96
 const layout = makeLayout({ cardWidth: CARD_WIDTH, emptyLaneWidth: 114, branchGap: 40 })
@@ -62,14 +64,19 @@ function EffectiveNode({ nodeId, nodes, effRankMap, gapMap, selectedId, onSelect
 
   return (
     <div className="flex flex-col items-center" style={{ minWidth: row.hasChildren ? row.childRowWidth : CARD_WIDTH }}>
-      <EffectiveCard
-        node={node}
-        effRank={effRankMap.get(node.id)}
-        gap={gapMap.get(node.id)}
-        isSelected={selectedId === node.id}
-        onSelect={() => onSelect(node.id)}
-        onOpenMemo={() => onOpenMemo(node.id)}
-      />
+      {/* 좌우 갈래가 둘 다 살아있어 접을 수 없는 '없음' 자리 — 카드는 감추고 선만 지나간다 */}
+      {node.passthrough ? (
+        <div className="h-4 w-px bg-gray-400" aria-hidden="true" />
+      ) : (
+        <EffectiveCard
+          node={node}
+          effRank={effRankMap.get(node.id)}
+          gap={gapMap.get(node.id)}
+          isSelected={selectedId === node.id}
+          onSelect={() => onSelect(node.id)}
+          onOpenMemo={() => onOpenMemo(node.id)}
+        />
+      )}
       {row.hasChildren && (
         <div className="flex flex-col items-center" style={{ width: row.childRowWidth }}>
           <TreeConnectors row={row} height={10} />
@@ -92,10 +99,24 @@ function EffectiveNode({ nodeId, nodes, effRankMap, gapMap, selectedId, onSelect
   )
 }
 
-export default function EffectiveTreePanel({ nodes, effRankMap, gapMap, selectedId, onSelect, onOpenMemo, rootNode, style }) {
+export default function EffectiveTreePanel({
+  nodes, effRankMap, gapMap, selectedId, onSelect, onOpenMemo, rootNode, style,
+  onSaveTree, onLoadTree, onResetTree,
+}) {
   const { containerRef, layerRef, onMouseDown, resetView } = usePanZoom()
+  const panelRef = useRef(null)
   const innerRef = useRef(null)
-  const roots = nodes.filter((n) => !n.parentId)
+  const { saveImage, print } = usePanelCapture({
+    panelRef, containerRef, innerRef, imageName: '실질직급계보도.jpg',
+  })
+
+  // 달성할 직급을 아직 안 정한('없음') 회원은 실질 계보도에 띄우지 않는다.
+  // 노드 id 는 그대로라 effRankMap/gapMap 을 그대로 쓴다.
+  const displayNodes = useMemo(
+    () => collapseHidden(nodes, (n) => n.rank === RANK_NONE),
+    [nodes],
+  )
+  const roots = displayNodes.filter((n) => !n.parentId)
 
   // 실질 직급 기준 직급별 인원
   const counts = {}
@@ -111,11 +132,20 @@ export default function EffectiveTreePanel({ nodes, effRankMap, gapMap, selected
   const rootIsNone = rootNode ? isNonRank(rootNode.rank) : false
 
   return (
-    <section style={style} className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white">
-      <div className="flex flex-col justify-between gap-1 border-b px-3 py-2 lg:flex-row lg:items-center">
-        <span className="text-[11px] font-bold uppercase text-gray-500">실질 직급 계보도</span>
-        <button onClick={resetView} className="glass-btn h-7 w-fit min-w-fit px-2 text-[10px]">🎯 화면 맞춤</button>
-      </div>
+    <section
+      ref={panelRef}
+      style={style}
+      className="tree-panel flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-white"
+    >
+      <TreePanelHeader
+        title="실질 직급 계보도"
+        onSave={onSaveTree}
+        onLoad={onLoadTree}
+        onPrint={print}
+        onImage={saveImage}
+        onFocusRoot={resetView}
+        onReset={onResetTree}
+      />
 
       {rootNode && rootIsNone && (
         <div className="border-b bg-slate-50 px-3 py-2 text-xs text-gray-500">
@@ -171,7 +201,7 @@ export default function EffectiveTreePanel({ nodes, effRankMap, gapMap, selected
       <div
         ref={containerRef}
         onMouseDown={onMouseDown}
-        className="org-tree-pan-area min-h-0 flex-1 overflow-hidden bg-slate-50/40 p-4 md:min-h-[340px]"
+        className="tree-print-area org-tree-pan-area min-h-0 flex-1 overflow-hidden bg-slate-50/40 p-4 md:min-h-[340px]"
       >
         <div ref={layerRef} className="will-change-transform" style={{ transform: 'translate(0px, 0px) scale(1)', transformOrigin: '0 0' }}>
           <div ref={innerRef} className="origin-top scale-[0.85] transform md:scale-100">
@@ -179,7 +209,7 @@ export default function EffectiveTreePanel({ nodes, effRankMap, gapMap, selected
               <EffectiveNode
                 key={root.id}
                 nodeId={root.id}
-                nodes={nodes}
+                nodes={displayNodes}
                 effRankMap={effRankMap}
                 gapMap={gapMap}
                 selectedId={selectedId}

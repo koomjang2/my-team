@@ -49,21 +49,22 @@
   .no-print { display: none !important; }
 
   /* 모바일용 고정 높이(100dvh)가 인쇄물을 잘라내지 않도록 */
-  body.print-org-tree-mode .app-root {
+  body.print-panel-mode .app-root {
     height: auto !important;
     overflow: visible !important;
   }
 
-  body.print-org-tree-mode,
-  body.print-org-tree-mode * {
+  /* 인쇄 버튼을 누른 패널에만 .print-target 이 붙는다 — 좌/우 어느 쪽이든 같은 규칙을 탄다 */
+  body.print-panel-mode,
+  body.print-panel-mode * {
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
-  body.print-org-tree-mode * { visibility: hidden !important; }
+  body.print-panel-mode * { visibility: hidden !important; }
 
-  body.print-org-tree-mode .org-tree-panel.no-print {
-    display: block !important;
+  body.print-panel-mode .print-target {
+    display: flex !important;
     visibility: visible !important;
     position: absolute !important;
     top: 0 !important;
@@ -73,10 +74,11 @@
     overflow: visible !important;
     border: none !important;
   }
-  body.print-org-tree-mode .org-tree-panel.no-print > *:first-child {
+  /* 머리줄·요약줄은 빼고 계보도만 찍는다 */
+  body.print-panel-mode .print-target > *:not(.tree-print-area) {
     display: none !important;
   }
-  body.print-org-tree-mode .org-tree-print-area {
+  body.print-panel-mode .print-target .tree-print-area {
     display: block !important;
     visibility: visible !important;
     overflow: visible !important;
@@ -86,14 +88,14 @@
     width: max-content !important;
     background: #fff !important;
   }
-  body.print-org-tree-mode .org-tree-print-area * {
+  body.print-panel-mode .print-target .tree-print-area * {
     visibility: visible !important;
   }
-  body.print-org-tree-mode .org-tree-print-area > div {
+  body.print-panel-mode .print-target .tree-print-area > div {
     transform: none !important;
   }
 
-  body.print-org-tree-mode .org-tree-print-area * {
+  body.print-panel-mode .print-target .tree-print-area * {
     background-image: none !important;
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
@@ -102,7 +104,7 @@
     transition: none !important;
     animation: none !important;
   }
-  body.print-org-tree-mode .org-tree-print-area .opacity-0 {
+  body.print-panel-mode .print-target .tree-print-area .opacity-0 {
     display: none !important;
   }
 
