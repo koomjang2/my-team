@@ -29,10 +29,30 @@
   .org-tree-pan-area.is-panning * {
     cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 24 24' fill='white' stroke='%23334155' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><path d='M18 11V8a2 2 0 0 0-4 0'/><path d='M14 10V6a2 2 0 0 0-4 0v4'/><path d='M10 10V7a2 2 0 0 0-4 0v6'/><path d='M18 9a2 2 0 1 1 4 0v5a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34L2.42 16.1a2 2 0 0 1 2.83-2.82L7 15'/></svg>") 12 12, grabbing !important;
   }
+
+  /* md 이상(좌우 배치)에서는 상하 분할 비율(인라인 height)을 무효화한다 */
+  @media (min-width: 768px) {
+    .split-pane-top {
+      height: auto !important;
+    }
+  }
+
+  /* 상하 분할 기준선을 끄는 동안에는 화면 전체가 세로 리사이즈 커서 */
+  body.is-splitting,
+  body.is-splitting * {
+    cursor: row-resize !important;
+    user-select: none !important;
+  }
 }
 
 @media print {
   .no-print { display: none !important; }
+
+  /* 모바일용 고정 높이(100dvh)가 인쇄물을 잘라내지 않도록 */
+  body.print-org-tree-mode .app-root {
+    height: auto !important;
+    overflow: visible !important;
+  }
 
   body.print-org-tree-mode,
   body.print-org-tree-mode * {

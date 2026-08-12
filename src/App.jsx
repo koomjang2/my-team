@@ -11,6 +11,12 @@ const FILE_FORMAT = 'my-team-lineage-v1'
 
 const makeId = () => 'n_' + Math.random().toString(36).slice(2, 10)
 
+// 좁은 화면(세로 모바일)에서는 두 패널을 위/아래로 절반씩 나눠 쓴다.
+// 높이 비율은 항상 인라인으로 걸고, md 이상에서는 CSS(.split-pane-top)가 이를 무효화한다 —
+// 미디어쿼리 JS 상태에 의존하지 않으므로 회전·리사이즈에도 좌우 배치가 깨지지 않는다.
+const SPLIT_MIN = 15
+const SPLIT_MAX = 85
+
 function makeNode({ parentId = null, side = null, rank = 'SM', name = '', memberId = '' } = {}) {
   return {
     id: makeId(),
@@ -63,6 +69,11 @@ export default function App() {
   const [memoNodeId, setMemoNodeId] = useState(null)
   const loadInputRef = useRef(null)
 
+  // 좁은 화면 상하 분할 — 기준선을 끌어 비율을 바꾼다 (기본 절반)
+  const [splitPct, setSplitPct] = useState(50)
+  const splitAreaRef = useRef(null)
+  const splitDragRef = useRef(false)
+
   const { nodes, period } = state
   const me = nodes.find((n) => !n.parentId) ?? null
 
@@ -79,6 +90,49 @@ export default function App() {
     }
     return { effRankMap, gapMap }
   }, [nodes])
+
+  // 기준선 드래그 — 터치/마우스 공용. 컨테이너 안에서의 Y 비율이 곧 위쪽 패널 높이다.
+  function moveSplitTo(clientY) {
+    const rect = splitAreaRef.current?.getBoundingClientRect()
+    if (!rect?.height) return
+    const pct = ((clientY - rect.top) / rect.height) * 100
+    setSplitPct(Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, pct)))
+  }
+
+  function startSplitDrag(e) {
+    splitDragRef.current = true
+    document.body.classList.add('is-splitting')
+    // 터치는 React 가 passive 로 붙이므로 preventDefault 가 먹지 않는다 —
+    // 기준선의 touch-action:none 이 스크롤을 대신 막는다. 마우스만 선택 방지.
+    if (e.type === 'mousedown') e.preventDefault()
+  }
+
+  useEffect(() => {
+    function onMove(e) {
+      if (!splitDragRef.current) return
+      const clientY = e.touches ? e.touches[0]?.clientY : e.clientY
+      if (clientY == null) return
+      moveSplitTo(clientY)
+      e.preventDefault()
+    }
+    function onEnd() {
+      if (!splitDragRef.current) return
+      splitDragRef.current = false
+      document.body.classList.remove('is-splitting')
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onEnd)
+    window.addEventListener('touchmove', onMove, { passive: false })
+    window.addEventListener('touchend', onEnd)
+    window.addEventListener('touchcancel', onEnd)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onEnd)
+      window.removeEventListener('touchmove', onMove)
+      window.removeEventListener('touchend', onEnd)
+      window.removeEventListener('touchcancel', onEnd)
+    }
+  }, [])
 
   function setNodes(updater) {
     setState((prev) => ({ ...prev, nodes: typeof updater === 'function' ? updater(prev.nodes) : updater }))
@@ -162,7 +216,7 @@ export default function App() {
   const memoNode = nodes.find((n) => n.id === memoNodeId) ?? null
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-slate-50">
+    <div className="app-root relative flex h-[100dvh] flex-col overflow-hidden bg-slate-50 md:h-auto md:min-h-screen md:overflow-visible">
       <input
         ref={loadInputRef}
         type="file"
@@ -170,6 +224,15 @@ export default function App() {
         className="hidden"
         onChange={handleLoadTreeFile}
       />
+
+      <header className="no-print flex-shrink-0 border-b bg-white px-3 py-1.5">
+        <h1 className="text-[13px] font-bold leading-tight text-gray-800">
+          My Team{' '}
+          <span className="font-normal text-gray-500">
+            - 나와 함께 하는 회원들을 입력하고 직급을 계획해보세요.
+          </span>
+        </h1>
+      </header>
 
       <TopBar
         me={me}
@@ -179,8 +242,9 @@ export default function App() {
         onOpenMemo={() => me && setMemoNodeId(me.id)}
       />
 
-      <div className="flex flex-1 flex-col md:flex-row">
+      <div ref={splitAreaRef} className="flex min-h-0 flex-1 flex-col md:flex-row">
         <OrgTreePanel
+          style={{ height: `${splitPct}%` }}
           nodes={nodes}
           effRankMap={effRankMap}
           gapMap={gapMap}
@@ -194,6 +258,19 @@ export default function App() {
           onPrintTree={() => window.dispatchEvent(new CustomEvent('print-org-tree'))}
           onResetTree={handleResetTree}
         />
+
+        {/* 상하 분할 기준선 — 누른 채 위아래로 끌면 두 패널 비율이 바뀐다 */}
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          className="no-print flex h-4 flex-shrink-0 touch-none cursor-row-resize items-center justify-center border-y border-slate-300 bg-slate-100 active:bg-slate-200 md:hidden"
+          onMouseDown={startSplitDrag}
+          onTouchStart={startSplitDrag}
+          onDoubleClick={() => setSplitPct(50)}
+          title="누른 채 위아래로 끌면 화면 비율이 바뀝니다 (두 번 누르면 절반)"
+        >
+          <div className="h-1 w-10 rounded-full bg-slate-400" />
+        </div>
 
         <EffectiveTreePanel
           nodes={nodes}

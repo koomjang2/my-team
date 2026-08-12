@@ -23,8 +23,16 @@ export function usePanZoom() {
     pinchStartPanX: 0, pinchStartPanY: 0,
   })
 
+  // 루트('나')는 항상 화면 맨 위에 붙는다 — 위쪽 빈 공간을 만들며 내려갈 수 없고,
+  // 아래(하위 계보도) 방향으로만 이동한다. panY > 0 이 곧 '나 위쪽 여백'이다.
+  function clampPan() {
+    const s = stateRef.current
+    if (s.panY > 0) s.panY = 0
+  }
+
   function apply() {
     if (!layerRef.current) return
+    clampPan()
     const { panX, panY, zoom } = stateRef.current
     layerRef.current.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`
   }

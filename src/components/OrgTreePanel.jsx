@@ -188,6 +188,7 @@ export default function OrgTreePanel({
   nodes, effRankMap, gapMap, selectedId,
   onAdd, onRemove, onUpdate, onOpenMemo,
   onSaveTree, onLoadTree, onPrintTree, onResetTree,
+  style,
 }) {
   const [editingId, setEditingId] = useState(null)
   const { containerRef, layerRef, onMouseDown, resetView } = usePanZoom()
@@ -244,7 +245,10 @@ export default function OrgTreePanel({
   }, [])
 
   return (
-    <aside className="org-tree-panel no-print flex w-full flex-shrink-0 flex-col border-b bg-white md:w-1/2 md:border-b-0 md:border-r">
+    <aside
+      style={style}
+      className="org-tree-panel split-pane-top no-print flex w-full min-h-0 flex-shrink-0 flex-col overflow-hidden border-b bg-white md:w-1/2 md:border-b-0 md:border-r"
+    >
       <div className="flex flex-col justify-between gap-1 border-b px-3 py-2 lg:flex-row lg:items-center">
         <span className="text-[11px] font-bold uppercase text-gray-500">계보도 구성</span>
         <div className="flex gap-1 overflow-x-auto pb-1 lg:pb-0">
@@ -260,7 +264,7 @@ export default function OrgTreePanel({
       <div
         ref={containerRef}
         onMouseDown={onMouseDown}
-        className="org-tree-print-area org-tree-pan-area min-h-[340px] flex-1 overflow-hidden bg-slate-50/30 p-4"
+        className="org-tree-print-area org-tree-pan-area min-h-0 flex-1 overflow-hidden bg-slate-50/30 p-4 md:min-h-[340px]"
       >
         <div ref={layerRef} className="will-change-transform" style={{ transform: 'translate(0px, 0px) scale(1)', transformOrigin: '0 0' }}>
           <div ref={innerRef} className="origin-top scale-[0.85] transform transition-transform md:scale-100">
