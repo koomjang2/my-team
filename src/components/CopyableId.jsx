@@ -68,7 +68,6 @@ export default function CopyableId({ value, size = 'sm' }) {
           }`}
           title={copied ? '복사됨' : 'ID 복사'}
           aria-label={copied ? 'ID 복사됨' : 'ID 복사'}
-          data-no-pan
         >
           {copied ? <Check size={iconSize} /> : <Copy size={iconSize} />}
         </button>

@@ -43,7 +43,6 @@ export default function NodeEditorPopover({ node, onUpdate, onClose }) {
     <div
       className="no-print mt-1.5 w-56 rounded-lg border bg-white p-2 text-xs shadow-xl z-[200]"
       onClick={(e) => e.stopPropagation()}
-      data-no-pan
     >
       <div className="mb-1.5 flex items-center justify-end">
         <button

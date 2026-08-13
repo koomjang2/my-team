@@ -38,9 +38,10 @@ function EffectiveCard({
       <div className="mt-0.5 truncate text-[11px] font-semibold text-gray-800">{node.name || '이름 없음'}</div>
       <CopyableId value={node.memberId} />
 
+      {/* 좌·우를 한 줄씩 나눠 적는다 — 이어 붙이면 어디가 부족한지 눈에 안 들어온다 */}
       {!nonRank && !gap?.achieved && gap?.shortfalls?.length > 0 && (
         <div className="mt-0.5 rounded bg-white/70 px-0.5 py-0.5 text-[9px] leading-tight text-rose-700">
-          {gap.shortfalls.join(' · ')}
+          {gap.shortfalls.map((s) => <div key={s}>{s}</div>)}
         </div>
       )}
 
@@ -48,7 +49,6 @@ function EffectiveCard({
         className="mt-1 w-full rounded border border-white/70 bg-white/80 py-0.5 text-[10px] font-medium text-gray-600 transition-colors hover:bg-white"
         onClick={(e) => { e.stopPropagation(); onOpenMemo() }}
         title="메모 보기"
-        data-no-pan
       >
         메모{node.memo?.trim() ? ' •' : ''}
       </button>

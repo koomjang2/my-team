@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
-import { RANK_COLORS, RANK_NONE, RANK_RULES, STATUS_ACTIVE, STATUS_LABEL, hasMemberPv, isNonRank, rankDisplay } from '../engine/ranks.js'
+import { RANK_COLORS, RANK_NONE, RANK_RULES, hasMemberPv, isNonRank, rankDisplay } from '../engine/ranks.js'
 import { makeLayout } from './treeLayout.js'
 import TreeConnectors from './TreeConnectors.jsx'
 import NodeEditorPopover from './NodeEditorPopover.jsx'
@@ -13,6 +13,9 @@ import { usePanelCapture } from './usePanelCapture.js'
 
 const CARD_WIDTH = 104
 const layout = makeLayout({ cardWidth: CARD_WIDTH, emptyLaneWidth: 130, branchGap: 48 })
+
+/** 카드 안 '명목' / '목표' 뱃지 — 직급 이름 **왼쪽**에 붙는다 */
+const BADGE = 'shrink-0 rounded px-1 text-[10px] font-medium leading-tight'
 
 function NodeCard({
   node, effRank, gap, isSelected, isEditing,
@@ -45,22 +48,17 @@ function NodeCard({
         onClick={onOpenEditor}
         title="터치하면 달성할 직급을 선택합니다"
       >
-        {/* 명목 직급 — 이번에 달성할 직급과 별개로 달고 있는 이름표 */}
-        <div className="truncate text-[9px] leading-tight text-gray-500">
-          명목 {rankDisplay(node.nominalRank ?? RANK_NONE)}
+        {/* 두 줄 모두 [뱃지] 직급 꼴 — 어느 쪽 직급인지 뱃지가 먼저 말해 준다 */}
+        <div className="flex items-center justify-center gap-1 leading-tight">
+          <span className={`${BADGE} bg-gray-500/15 text-gray-700`}>명목</span>
+          <span className="truncate text-[11px] text-gray-600">
+            {rankDisplay(node.nominalRank ?? RANK_NONE)}
+          </span>
         </div>
 
         <div className="flex items-center justify-center gap-1">
+          <span className={`${BADGE} bg-sky-600/15 text-sky-800`}>목표</span>
           <span className="text-xs font-bold">{rankDisplay(node.rank)}</span>
-          {!nonRank && (
-            <span
-              className={`rounded px-1 text-[9px] leading-tight ${
-                node.status === STATUS_ACTIVE ? 'bg-sky-600/15 text-sky-800' : 'bg-amber-500/20 text-amber-800'
-              }`}
-            >
-              {STATUS_LABEL[node.status] ?? '실질'}
-            </span>
-          )}
         </div>
 
         <div className="mt-0.5 truncate text-xs font-semibold">{node.name || '이름 없음'}</div>
@@ -80,7 +78,11 @@ function NodeCard({
           <div
             className={`mt-0.5 text-[9px] font-medium leading-tight ${achieved ? 'text-emerald-700' : 'text-rose-600'}`}
           >
-            {achieved ? '조건 충족' : gap?.shortfalls?.join(' · ') || '조건 미달'}
+            {achieved
+              ? '조건 충족'
+              : gap?.shortfalls?.length
+                ? gap.shortfalls.map((s) => <div key={s}>{s}</div>)
+                : '조건 미달'}
           </div>
         )}
 

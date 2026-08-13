@@ -56,17 +56,20 @@ export function usePanZoom() {
     s.zoom = clamped
   }
 
-  // 버튼·입력칸·팝오버 위에서는 팬을 시작하지 않는다.
-  // 노드 카드는 **허용한다** — 카드를 잡고도 화면을 끌 수 있어야 하기 때문이다.
-  // 대신 살짝 눌렀다 뗀 것(탭)은 그대로 click 으로 흘려보내 편집창이 열리게 한다.
+  // 어디를 잡아도 화면을 끌 수 있어야 한다 — 카드도, 편집창의 빈자리도, 버튼 위도.
+  // 글자를 만지는 칸(입력칸·글상자)만 뺀다. 거기서 끌기는 캐럿·선택이라
+  // 팬이 가로채면 글을 고칠 수 없다. [data-no-pan] 은 예외를 두고 싶을 때 쓴다.
   function isPanStart(target) {
     if (!target) return false
-    return !target.closest('button, input, select, textarea, [data-no-pan]')
+    return !target.closest('input, select, textarea, [data-no-pan]')
   }
 
-  /** 카드 위에서 시작한 눌림인가 — 터치에서 click 을 살려 두어야 하는 경우 */
-  function isOnCard(target) {
-    return !!target?.closest?.('.tree-node-card')
+  /**
+   * 눌렀다 떼면 click 이 나야 하는 자리인가 (카드·버튼 등).
+   * 이런 곳에서는 touchstart 를 막지 않는다 — 막으면 탭이 click 으로 이어지지 않는다.
+   */
+  function isTapTarget(target) {
+    return !!target?.closest?.('.tree-node-card, button, a, label')
   }
 
   function panStart(clientX, clientY) {
@@ -196,9 +199,9 @@ export function usePanZoom() {
         s.suppressClick = false
         if (!isPanStart(t.target)) return
         panStart(t.clientX, t.clientY)
-        // 카드 위에서는 touchstart 를 막지 않는다 — 막으면 탭이 click 으로 이어지지 않아
-        // 편집창이 열리지 않는다. 실제로 끌기 시작하면 touchmove 에서 막는다.
-        if (!isOnCard(t.target)) e.preventDefault()
+        // 누르면 반응해야 하는 자리(카드·버튼)에서는 touchstart 를 막지 않는다 —
+        // 막으면 탭이 click 으로 이어지지 않는다. 실제로 끌면 touchmove 에서 막는다.
+        if (!isTapTarget(t.target)) e.preventDefault()
       }
     }
 
