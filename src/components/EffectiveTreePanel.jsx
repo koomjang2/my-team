@@ -12,14 +12,16 @@ const CARD_WIDTH = 96
 const layout = makeLayout({ cardWidth: CARD_WIDTH, emptyLaneWidth: 114, branchGap: 40 })
 
 /**
- * 이 패널이 **글자로** 보여주는 직급은 실질 직급뿐이다 — 명목 직급은 왼쪽 관심사다.
- * 다만 카드 **색**은 그 사람을 어느 직급으로 보내기로 했는지(달성할 직급)를 따른다.
- * 목표색 카드에 실질 직급이 적히므로, 목표와 결과가 어긋난 자리가 눈에 띈다.
+ * '목표 계보도' 카드 — 이름도 색도 **목표 직급**(`node.rank`)을 그대로 따른다.
+ * 조건을 못 채워도 고른 직급이 그대로 보인다. 짜 놓은 그림을 보는 화면이기 때문이다.
+ *
+ * 실질 직급(실제로 달성되는 직급)은 카드에 적지 않는다 — 대신 못 채운 자리에는
+ * 무엇이 몇 명 모자란지 아래에 붉게 적히고, 머리줄 요약에 실질 직급이 나온다.
  */
-function EffectiveCard({ node, effRank, gap, onSelect, isSelected }) {
+function EffectiveCard({ node, gap, onSelect, isSelected }) {
   const nonRank = isNonRank(node.rank)
   const colorClass = RANK_COLORS[node.rank] ?? 'border-gray-300 bg-gray-100 text-gray-500'
-  const displayRank = rankDisplay(nonRank ? node.rank : effRank)
+  const displayRank = rankDisplay(node.rank)
 
   return (
     <div
@@ -29,7 +31,7 @@ function EffectiveCard({ node, effRank, gap, onSelect, isSelected }) {
       style={{ width: CARD_WIDTH }}
       onClick={onSelect}
     >
-      {/* 흰 박스 없이 글자만 — 왼쪽 카드처럼 카드 색(달성할 직급)의 글자색을 물려받는다 */}
+      {/* 흰 박스 없이 글자만 — 왼쪽 카드처럼 카드 색(목표 직급)의 글자색을 물려받는다 */}
       <div className="text-[11px] font-bold leading-tight">{displayRank}</div>
       {/* 이름·ID 는 왼쪽 카드와 같은 크기·굵기로 맞춘다 */}
       <div className="mt-0.5 truncate text-xs font-semibold text-gray-800">{node.name || '이름 없음'}</div>
@@ -50,7 +52,7 @@ function EffectiveCard({ node, effRank, gap, onSelect, isSelected }) {
   )
 }
 
-function EffectiveNode({ nodeId, nodes, effRankMap, gapMap, selectedId, onSelect }) {
+function EffectiveNode({ nodeId, nodes, gapMap, selectedId, onSelect }) {
   const node = nodes.find((n) => n.id === nodeId)
   if (!node) return null
   const row = layout.childRow(nodeId, nodes)
@@ -63,7 +65,6 @@ function EffectiveNode({ nodeId, nodes, effRankMap, gapMap, selectedId, onSelect
       ) : (
         <EffectiveCard
           node={node}
-          effRank={effRankMap.get(node.id)}
           gap={gapMap.get(node.id)}
           isSelected={selectedId === node.id}
           onSelect={() => onSelect(node.id)}
@@ -75,13 +76,13 @@ function EffectiveNode({ nodeId, nodes, effRankMap, gapMap, selectedId, onSelect
           <div className="flex" style={{ width: row.childRowWidth }}>
             <div className="flex flex-col items-center" style={{ width: row.leftLaneWidth }}>
               {row.hasLeft && (
-                <EffectiveNode nodeId={row.left.id} nodes={nodes} effRankMap={effRankMap} gapMap={gapMap} selectedId={selectedId} onSelect={onSelect} />
+                <EffectiveNode nodeId={row.left.id} nodes={nodes} gapMap={gapMap} selectedId={selectedId} onSelect={onSelect} />
               )}
             </div>
             <div style={{ width: layout.branchGap }} />
             <div className="flex flex-col items-center" style={{ width: row.rightLaneWidth }}>
               {row.hasRight && (
-                <EffectiveNode nodeId={row.right.id} nodes={nodes} effRankMap={effRankMap} gapMap={gapMap} selectedId={selectedId} onSelect={onSelect} />
+                <EffectiveNode nodeId={row.right.id} nodes={nodes} gapMap={gapMap} selectedId={selectedId} onSelect={onSelect} />
               )}
             </div>
           </div>
@@ -206,7 +207,6 @@ export default function EffectiveTreePanel({
                 key={root.id}
                 nodeId={root.id}
                 nodes={displayNodes}
-                effRankMap={effRankMap}
                 gapMap={gapMap}
                 selectedId={selectedId}
                 onSelect={onSelect}
