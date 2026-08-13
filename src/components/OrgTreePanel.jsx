@@ -7,7 +7,6 @@ import NodeEditorPopover from './NodeEditorPopover.jsx'
 import CopyableId from './CopyableId.jsx'
 import TreePanelHeader from './TreePanelHeader.jsx'
 import CaptureCaption from './CaptureCaption.jsx'
-import MemoPopover from './MemoPopover.jsx'
 import { usePanZoom } from './usePanZoom.js'
 import { usePanelCapture } from './usePanelCapture.js'
 
@@ -20,11 +19,8 @@ const BADGE = 'shrink-0 rounded px-1 text-[10px] font-medium leading-tight'
 function NodeCard({
   node, effRank, gap, isSelected, isEditing,
   onOpenEditor, onAddLeft, onAddRight, onRemove, canAddLeft, canAddRight,
-  // 카드의 메모 버튼은 없앴지만(메모는 편집창 안으로 들어갔다),
-  // 맨 위 메뉴의 '메모' 로 여는 길은 남아 있어 쪽지창 자체는 그대로 둔다.
-  memoOpen, onCloseMemo, onSaveMemo,
 }) {
-  // 왼쪽 '계보도 구성' 카드 색은 **명목 직급** 을 따른다 (오른쪽은 달성할 직급을 따른다)
+  // 왼쪽 '나의 계보도' 카드 색은 **명목 직급** 을 따른다 (오른쪽 '목표 계보도' 는 목표 직급)
   const colorClass = RANK_COLORS[node.nominalRank ?? RANK_NONE] ?? 'bg-gray-100 text-gray-700 border-gray-300'
   // 없음/소비자는 직급 판정 대상이 아니다
   const nonRank = isNonRank(node.rank)
@@ -46,7 +42,7 @@ function NodeCard({
             : 'hover:-translate-y-[2px] hover:shadow-[0_12px_22px_rgba(15,23,42,0.22)]'}`}
         style={{ width: CARD_WIDTH }}
         onClick={onOpenEditor}
-        title="터치하면 달성할 직급을 선택합니다"
+        title="터치하면 목표 직급을 선택합니다"
       >
         {/* 두 줄 모두 [뱃지] 직급 꼴 — 어느 쪽 직급인지 뱃지가 먼저 말해 준다 */}
         <div className="flex items-center justify-center gap-1 leading-tight">
@@ -97,10 +93,6 @@ function NodeCard({
           </button>
         )}
 
-        {/* 메모는 이 카드 바로 밑에 겹쳐 뜬다 — 계보도 배치를 밀지 않도록 absolute */}
-        {memoOpen && (
-          <MemoPopover node={node} onSave={onSaveMemo} onClose={onCloseMemo} />
-        )}
       </div>
 
       <div className="mt-1.5 flex gap-1">
@@ -131,7 +123,7 @@ function NodeCard({
   )
 }
 
-function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, memoNodeId, handlers }) {
+function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, handlers }) {
   const node = nodes.find((n) => n.id === nodeId)
   if (!node) return null
 
@@ -152,9 +144,6 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, me
         onAddLeft={() => handlers.onAdd(node.id, 'left')}
         onAddRight={() => handlers.onAdd(node.id, 'right')}
         onRemove={isRoot ? undefined : () => handlers.onRemove(node.id)}
-        memoOpen={memoNodeId === node.id}
-        onCloseMemo={handlers.onCloseMemo}
-        onSaveMemo={handlers.onSaveMemo}
       />
 
       {editingId === node.id && (
@@ -175,7 +164,7 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, me
                   <div className="mb-0.5 text-[10px] font-bold text-blue-500">좌</div>
                   <TreeNode
                     nodeId={row.left.id} nodes={nodes} effRankMap={effRankMap} gapMap={gapMap}
-                    editingId={editingId} selectedId={selectedId} memoNodeId={memoNodeId} handlers={handlers}
+                    editingId={editingId} selectedId={selectedId} handlers={handlers}
                   />
                 </>
               )}
@@ -187,7 +176,7 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, me
                   <div className="mb-0.5 text-[10px] font-bold text-orange-500">우</div>
                   <TreeNode
                     nodeId={row.right.id} nodes={nodes} effRankMap={effRankMap} gapMap={gapMap}
-                    editingId={editingId} selectedId={selectedId} memoNodeId={memoNodeId} handlers={handlers}
+                    editingId={editingId} selectedId={selectedId} handlers={handlers}
                   />
                 </>
               )}
@@ -202,7 +191,6 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, me
 export default function OrgTreePanel({
   nodes, effRankMap, gapMap, selectedId,
   onAdd, onRemove, onUpdate,
-  memoNodeId, onCloseMemo, onSaveMemo,
   onSaveTree, onLoadTree, onResetTree,
   periodLabel,
   style,
@@ -212,7 +200,7 @@ export default function OrgTreePanel({
   const panelRef = useRef(null)
   const innerRef = useRef(null)
   const { saveImage, print } = usePanelCapture({
-    panelRef, containerRef, innerRef, imageName: '계보도구성.jpg',
+    panelRef, containerRef, innerRef, imageName: '나의계보도.jpg',
   })
   const roots = nodes.filter((n) => !n.parentId)
 
@@ -220,8 +208,6 @@ export default function OrgTreePanel({
     onAdd,
     onRemove,
     onUpdate,
-    onCloseMemo,
-    onSaveMemo,
     onOpenEditor: (id) => setEditingId((cur) => (cur === id ? null : id)),
   }
 
@@ -232,7 +218,7 @@ export default function OrgTreePanel({
       className="tree-panel split-pane-top flex w-full min-h-0 flex-shrink-0 flex-col overflow-hidden border-b bg-white"
     >
       <TreePanelHeader
-        title="계보도 구성"
+        title="나의 계보도"
         onSave={onSaveTree}
         onLoad={onLoadTree}
         onPrint={print}
@@ -248,7 +234,7 @@ export default function OrgTreePanel({
       >
         <div ref={layerRef} className="will-change-transform" style={{ transform: 'translate(0px, 0px) scale(1)', transformOrigin: '0 0' }}>
           <div ref={innerRef} className="origin-top scale-[0.85] transform transition-transform md:scale-100">
-            <CaptureCaption title="계보도 구성" periodLabel={periodLabel} />
+            <CaptureCaption title="나의 계보도" periodLabel={periodLabel} />
             {roots.map((root) => (
               <TreeNode
                 key={root.id}
@@ -258,7 +244,6 @@ export default function OrgTreePanel({
                 gapMap={gapMap}
                 editingId={editingId}
                 selectedId={selectedId}
-                memoNodeId={memoNodeId}
                 handlers={handlers}
               />
             ))}

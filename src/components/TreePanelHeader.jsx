@@ -4,7 +4,11 @@
  * 좁은 화면에서도 절대 두 줄이 되지 않아야 하므로 flex-nowrap 으로 묶고,
  * 그래도 넘치면 줄바꿈 대신 가로 스크롤로 흘린다.
  */
+import { ChevronDown, ChevronUp } from 'lucide-react'
+
 const BTN = 'glass-btn h-6 shrink-0 gap-0.5 px-0.5 text-[10px] leading-none'
+// 맨 위 'My Team' 옆 접기/펼치기 버튼과 같은 모양 (App.jsx 의 menuOpen 버튼)
+const TOGGLE_BTN = 'glass-btn h-6 shrink-0 gap-0.5 px-1.5 text-[10px] leading-none'
 
 export default function TreePanelHeader({
   title, onSave, onLoad, onPrint, onImage, onFocusRoot, onReset,
@@ -25,10 +29,11 @@ export default function TreePanelHeader({
       {onToggleSummary && (
         <button
           onClick={onToggleSummary}
-          className={`${BTN} ml-auto`}
+          className={`${TOGGLE_BTN} ml-auto`}
           title={summaryOpen ? '요약 접기' : '요약 펼치기'}
           aria-expanded={summaryOpen}
         >
+          {summaryOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
           {summaryOpen ? '접기' : '펼치기'}
         </button>
       )}

@@ -1,90 +1,44 @@
-import { BUSINESS_RANKS, RANK_COLORS, RANK_SHORT_LABEL, RANK_NONE } from '../engine/ranks.js'
-
-// 아직 정하지 않은 상태도 고를 수 있어야 한다
-const GOAL_RANKS = [RANK_NONE, ...BUSINESS_RANKS]
-
 const MONTHS = Array.from({ length: 12 }, (_, i) => i + 1)
 
-/** 맨 위 — 내가 달성하고자 하는 직급 / 이름 / ID / 메모 + 대상 반기 */
-export default function TopBar({ me, period, onUpdateMe, onChangePeriod, onOpenMemo }) {
+/**
+ * 맨 위 줄 — 대상 반기만 고른다.
+ *
+ * 예전에는 여기서 '나'의 직급·이름·ID·메모도 고쳤는데, 카드를 누르면 나오는
+ * 편집창에서 똑같이 할 수 있어 중복이었다. 좁은 화면에서 계보도가 밀리기만 해서
+ * 뺐다 — 되살리려면 이 파일과 `App.jsx` 의 TopBar 호출부를 함께 손봐야 한다.
+ */
+export default function TopBar({ period, onChangePeriod }) {
   const years = Array.from({ length: 5 }, (_, i) => period.year - 2 + i)
 
   return (
     <div className="no-print flex flex-shrink-0 flex-wrap items-end gap-2 border-b bg-white px-3 py-2">
       <label className="flex flex-col gap-0.5">
-        <span className="text-[10px] font-semibold uppercase text-gray-500">달성하고자 하는 직급</span>
-        <select
-          className={`h-8 rounded-lg border-2 px-2 text-sm font-bold outline-none ${RANK_COLORS[me?.rank] ?? 'border-gray-300 bg-white'}`}
-          value={me?.rank ?? RANK_NONE}
-          onChange={(e) => onUpdateMe({ rank: e.target.value })}
-        >
-          {/* 트리에서 나를 소비자로 바꿨을 때도 값이 비지 않도록 */}
-          {me?.rank === 'CSM' && <option value="CSM">CSM (소비자)</option>}
-          {GOAL_RANKS.map((r) => (
-            <option key={r} value={r}>
-              {r === RANK_NONE ? '없음' : `${r} (${RANK_SHORT_LABEL[r]})`}
-            </option>
-          ))}
-        </select>
+        <span className="text-[10px] font-semibold uppercase text-gray-500">대상 기간</span>
+        <div className="flex gap-1">
+          <select
+            className="h-8 rounded-lg border px-1.5 text-sm outline-none"
+            value={period.year}
+            onChange={(e) => onChangePeriod({ ...period, year: +e.target.value })}
+          >
+            {years.map((y) => <option key={y} value={y}>{y}년</option>)}
+          </select>
+          <select
+            className="h-8 rounded-lg border px-1.5 text-sm outline-none"
+            value={period.month}
+            onChange={(e) => onChangePeriod({ ...period, month: +e.target.value })}
+          >
+            {MONTHS.map((m) => <option key={m} value={m}>{m}월</option>)}
+          </select>
+          <select
+            className="h-8 rounded-lg border px-1.5 text-sm outline-none"
+            value={period.half}
+            onChange={(e) => onChangePeriod({ ...period, half: e.target.value })}
+          >
+            <option value="first">상반기 (1~15일)</option>
+            <option value="second">하반기 (16일~말일)</option>
+          </select>
+        </div>
       </label>
-
-      <label className="flex flex-col gap-0.5">
-        <span className="text-[10px] font-semibold uppercase text-gray-500">이름</span>
-        <input
-          className="h-8 w-28 rounded-lg border px-2 text-sm outline-none focus:border-sky-400"
-          value={me?.name ?? ''}
-          onChange={(e) => onUpdateMe({ name: e.target.value })}
-          placeholder="내 이름"
-        />
-      </label>
-
-      <label className="flex flex-col gap-0.5">
-        <span className="text-[10px] font-semibold uppercase text-gray-500">ID</span>
-        <input
-          className="h-8 w-28 rounded-lg border px-2 text-sm outline-none focus:border-sky-400"
-          value={me?.memberId ?? ''}
-          onChange={(e) => onUpdateMe({ memberId: e.target.value })}
-          placeholder="회원번호"
-        />
-      </label>
-
-      <button
-        onClick={onOpenMemo}
-        className="glass-btn h-8 px-3 text-sm"
-        title="메모 열기"
-      >
-        메모{me?.memo?.trim() ? ' •' : ''}
-      </button>
-
-      <div className="ml-auto flex items-end gap-1">
-        <label className="flex flex-col gap-0.5">
-          <span className="text-[10px] font-semibold uppercase text-gray-500">대상 기간</span>
-          <div className="flex gap-1">
-            <select
-              className="h-8 rounded-lg border px-1.5 text-sm outline-none"
-              value={period.year}
-              onChange={(e) => onChangePeriod({ ...period, year: +e.target.value })}
-            >
-              {years.map((y) => <option key={y} value={y}>{y}년</option>)}
-            </select>
-            <select
-              className="h-8 rounded-lg border px-1.5 text-sm outline-none"
-              value={period.month}
-              onChange={(e) => onChangePeriod({ ...period, month: +e.target.value })}
-            >
-              {MONTHS.map((m) => <option key={m} value={m}>{m}월</option>)}
-            </select>
-            <select
-              className="h-8 rounded-lg border px-1.5 text-sm outline-none"
-              value={period.half}
-              onChange={(e) => onChangePeriod({ ...period, half: e.target.value })}
-            >
-              <option value="first">상반기 (1~15일)</option>
-              <option value="second">하반기 (16일~말일)</option>
-            </select>
-          </div>
-        </label>
-      </div>
     </div>
   )
 }

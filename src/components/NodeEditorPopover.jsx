@@ -102,7 +102,7 @@ export default function NodeEditorPopover({ node, onUpdate, onClose }) {
       )}
 
       <div className="mb-1.5 border-t pt-1.5">
-        <span className="font-semibold text-gray-600">달성할 직급 선택</span>
+        <span className="font-semibold text-gray-600">목표 직급 선택</span>
       </div>
 
       <div className="mb-2 grid grid-cols-3 gap-1">
@@ -121,7 +121,7 @@ export default function NodeEditorPopover({ node, onUpdate, onClose }) {
 
       {isNone && (
         <p className="mb-1 rounded-md border border-gray-200 bg-gray-50 p-1.5 text-[10px] text-gray-500">
-          달성할 직급을 정하지 않은 자리입니다. 어떤 직급 자격에도 포함되지 않지만,
+          목표 직급을 정하지 않은 자리입니다. 어떤 직급 자격에도 포함되지 않지만,
           이 사람 아래의 하위는 그대로 집계됩니다.
         </p>
       )}

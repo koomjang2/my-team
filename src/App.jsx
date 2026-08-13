@@ -75,8 +75,6 @@ function collectSubtreeIds(nodeId, nodes) {
 export default function App() {
   const [state, setState] = useState(loadInitialState)
   const [selectedId, setSelectedId] = useState(null)
-  // 메모는 누른 패널의 카드 밑에 뜬다 — 어느 패널에서 열었는지까지 기억해야 한다
-  const [memoTarget, setMemoTarget] = useState(null) // { nodeId, panel: 'org' | 'eff' }
   const loadInputRef = useRef(null)
 
   // 맨 위 입력 메뉴 접기 — 좁은 화면에서 계보도에 자리를 내주기 위한 것이라 취향을 기억해 둔다
@@ -182,15 +180,10 @@ export default function App() {
     const doomed = new Set(collectSubtreeIds(nodeId, nodes))
     setNodes((prev) => prev.filter((n) => !doomed.has(n.id)))
     if (selectedId && doomed.has(selectedId)) setSelectedId(null)
-    if (memoTarget && doomed.has(memoTarget.nodeId)) setMemoTarget(null)
   }
 
   function handleUpdate(nodeId, patch) {
     setNodes((prev) => prev.map((n) => (n.id === nodeId ? { ...n, ...patch } : n)))
-  }
-
-  function handleSaveMemo(nodeId, memo) {
-    handleUpdate(nodeId, { memo })
   }
 
   function handleSaveTree() {
@@ -228,7 +221,6 @@ export default function App() {
           period: parsed.period ?? defaultState().period,
         })
         setSelectedId(null)
-        setMemoTarget(null)
       } catch {
         alert('파일 파싱 실패')
       } finally {
@@ -246,7 +238,6 @@ export default function App() {
     if (!window.confirm('계보도를 초기화할까요? 현재 구성이 모두 삭제됩니다.')) return
     setState(defaultState())
     setSelectedId(null)
-    setMemoTarget(null)
   }
 
   return (
@@ -279,11 +270,8 @@ export default function App() {
 
       {menuOpen && (
         <TopBar
-          me={me}
           period={period}
-          onUpdateMe={(patch) => me && handleUpdate(me.id, patch)}
           onChangePeriod={(next) => setState((prev) => ({ ...prev, period: next }))}
-          onOpenMemo={() => me && setMemoTarget({ nodeId: me.id, panel: 'org' })}
         />
       )}
 
@@ -297,9 +285,6 @@ export default function App() {
           onAdd={handleAdd}
           onRemove={handleRemove}
           onUpdate={handleUpdate}
-          memoNodeId={memoTarget?.panel === 'org' ? memoTarget.nodeId : null}
-          onCloseMemo={() => setMemoTarget(null)}
-          onSaveMemo={handleSaveMemo}
           onSaveTree={handleSaveTree}
           onLoadTree={() => loadInputRef.current?.click()}
           onResetTree={handleResetTree}
@@ -325,10 +310,6 @@ export default function App() {
           gapMap={gapMap}
           selectedId={selectedId}
           onSelect={setSelectedId}
-          onOpenMemo={(id) => setMemoTarget({ nodeId: id, panel: 'eff' })}
-          memoNodeId={memoTarget?.panel === 'eff' ? memoTarget.nodeId : null}
-          onCloseMemo={() => setMemoTarget(null)}
-          onSaveMemo={handleSaveMemo}
           rootNode={me}
           onSaveTree={handleSaveTree}
           onLoadTree={() => loadInputRef.current?.click()}
