@@ -236,7 +236,7 @@ export default function App() {
   const memoNode = nodes.find((n) => n.id === memoNodeId) ?? null
 
   return (
-    <div className="app-root relative flex h-[100dvh] flex-col overflow-hidden bg-slate-50 md:h-auto md:min-h-screen md:overflow-visible">
+    <div className="app-root relative flex h-[100dvh] flex-col overflow-hidden bg-slate-50">
       <input
         ref={loadInputRef}
         type="file"
