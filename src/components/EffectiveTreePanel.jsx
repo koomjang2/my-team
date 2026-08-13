@@ -33,9 +33,8 @@ function EffectiveCard({
       style={{ width: CARD_WIDTH }}
       onClick={onSelect}
     >
-      <div className="mx-auto inline-block rounded border border-white/70 bg-white/80 px-1.5 text-[11px] font-bold text-gray-800">
-        {displayRank}
-      </div>
+      {/* 흰 박스 없이 글자만 — 왼쪽 카드처럼 카드 색(달성할 직급)의 글자색을 물려받는다 */}
+      <div className="text-[11px] font-bold leading-tight">{displayRank}</div>
       <div className="mt-0.5 truncate text-[11px] font-semibold text-gray-800">{node.name || '이름 없음'}</div>
       <CopyableId value={node.memberId} />
 

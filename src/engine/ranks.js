@@ -86,7 +86,9 @@ export const MEMBER_PV_RANKS = ['SSM', 'SM', 'DM']
 
 export const RANK_COLORS = {
   NONE: 'bg-white text-gray-400 border-dashed border-gray-300',
-  CSM: 'bg-slate-100 text-slate-500 border-slate-300',
+  // 직급 글자에서 흰 박스를 걷어낸 뒤로는 이 색이 곧 글자색이다.
+  // slate-500 은 카드 배경(slate-100) 대비 4.3:1 로 모자라 한 단계 진하게 둔다.
+  CSM: 'bg-slate-100 text-slate-600 border-slate-300',
   SSM: 'bg-gray-200 text-gray-700 border-gray-400',
   SM: 'bg-blue-100 text-blue-800 border-blue-400',
   DM: 'bg-orange-100 text-orange-800 border-orange-400',

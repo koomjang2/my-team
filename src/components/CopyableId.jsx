@@ -48,11 +48,16 @@ export default function CopyableId({ value, size = 'sm' }) {
     timerRef.current = setTimeout(() => setCopied(false), 1200)
   }
 
-  const textClass = size === 'sm' ? 'text-[9px]' : 'text-[10px]'
-  const iconSize = size === 'sm' ? 9 : 10
+  // 'name' 은 카드의 이름줄과 같은 크기·굵기 — ID 를 이름만큼 또렷하게 보여줄 때 쓴다
+  const STYLE = {
+    sm: { text: 'text-[9px]', weight: '', icon: 9 },
+    md: { text: 'text-[10px]', weight: '', icon: 10 },
+    name: { text: 'text-xs', weight: 'font-bold', icon: 11 },
+  }
+  const { text: textClass, weight, icon: iconSize } = STYLE[size] ?? STYLE.sm
 
   return (
-    <div className={`flex items-center justify-center gap-0.5 ${textClass} text-gray-500`}>
+    <div className={`flex items-center justify-center gap-0.5 ${textClass} ${weight} text-gray-500`}>
       <span className="truncate">{id || 'ID 없음'}</span>
       {id && (
         <button

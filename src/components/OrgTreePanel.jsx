@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { Plus } from 'lucide-react'
-import { RANK_COLORS, RANK_NONE, STATUS_ACTIVE, STATUS_LABEL, hasMemberPv, isNonRank, rankDisplay } from '../engine/ranks.js'
+import { RANK_COLORS, RANK_NONE, RANK_RULES, STATUS_ACTIVE, STATUS_LABEL, hasMemberPv, isNonRank, rankDisplay } from '../engine/ranks.js'
 import { makeLayout } from './treeLayout.js'
 import TreeConnectors from './TreeConnectors.jsx'
 import NodeEditorPopover from './NodeEditorPopover.jsx'
@@ -16,14 +16,18 @@ const layout = makeLayout({ cardWidth: CARD_WIDTH, emptyLaneWidth: 130, branchGa
 
 function NodeCard({
   node, effRank, gap, isSelected, isEditing,
-  onOpenEditor, onOpenMemo, onAddLeft, onAddRight, onRemove, canAddLeft, canAddRight,
+  onOpenEditor, onAddLeft, onAddRight, onRemove, canAddLeft, canAddRight,
+  // 카드의 메모 버튼은 없앴지만(메모는 편집창 안으로 들어갔다),
+  // 맨 위 메뉴의 '메모' 로 여는 길은 남아 있어 쪽지창 자체는 그대로 둔다.
   memoOpen, onCloseMemo, onSaveMemo,
 }) {
   // 왼쪽 '계보도 구성' 카드 색은 **명목 직급** 을 따른다 (오른쪽은 달성할 직급을 따른다)
   const colorClass = RANK_COLORS[node.nominalRank ?? RANK_NONE] ?? 'bg-gray-100 text-gray-700 border-gray-300'
   // 없음/소비자는 직급 판정 대상이 아니다
   const nonRank = isNonRank(node.rank)
-  // 명목 직급에 실제로 도달하는지 — 오른쪽 실질 계보도와 같은 판정
+  // 구조(좌/우 레그)로 검증되는 직급인가 — DM 이상만 해당
+  const isLegRank = RANK_RULES[node.rank]?.type === 'leg'
+  // 달성할 직급에 실제로 도달하는지 — 오른쪽 실질 계보도와 같은 판정
   const achieved = nonRank || gap?.achieved
 
   return (
@@ -60,29 +64,25 @@ function NodeCard({
         </div>
 
         <div className="mt-0.5 truncate text-xs font-semibold">{node.name || '이름 없음'}</div>
-        <CopyableId value={node.memberId} />
+        <CopyableId value={node.memberId} size="name" />
 
         {hasMemberPv(node.rank) && (node.memberPvMan ?? 0) > 0 && (
           <div className="truncate text-[9px] text-emerald-700">회원PV {node.memberPvMan}만</div>
         )}
 
-        {!nonRank && (
+        {/*
+          SSM/SM 은 지정한 것 자체가 곧 달성 전제라 '조건 충족' 이 늘 떠 있어 의미가 없다.
+          구조로 검증되는 DM 이상(leg)만 결과를 적는다.
+          부족분은 좌·우 **둘 다** 적는다 — truncate 를 걸면 뒤쪽(우)이 잘려
+          좌만 부족한 것처럼 보이므로 줄바꿈으로 흘린다.
+        */}
+        {isLegRank && (
           <div
-            className={`mt-0.5 truncate text-[9px] font-medium ${achieved ? 'text-emerald-700' : 'text-rose-600'}`}
+            className={`mt-0.5 text-[9px] font-medium leading-tight ${achieved ? 'text-emerald-700' : 'text-rose-600'}`}
           >
-            {achieved ? '조건 충족' : gap?.shortfalls?.[0] ?? '조건 미달'}
+            {achieved ? '조건 충족' : gap?.shortfalls?.join(' · ') || '조건 미달'}
           </div>
         )}
-
-        {/* 메모는 직급 편집창 대신 카드 밑 쪽지창을 연다 */}
-        <button
-          className="mt-1 w-full rounded border border-white/70 bg-white/70 py-0.5 text-[10px] font-medium text-gray-600 transition-colors hover:bg-white"
-          onClick={(e) => { e.stopPropagation(); onOpenMemo() }}
-          title="메모 보기"
-          data-no-pan
-        >
-          메모{node.memo?.trim() ? ' •' : ''}
-        </button>
 
         {onRemove && (
           <button
@@ -147,7 +147,6 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, me
         canAddLeft={!row.hasLeft}
         canAddRight={!row.hasRight}
         onOpenEditor={() => handlers.onOpenEditor(node.id)}
-        onOpenMemo={() => handlers.onOpenMemo(node.id)}
         onAddLeft={() => handlers.onAdd(node.id, 'left')}
         onAddRight={() => handlers.onAdd(node.id, 'right')}
         onRemove={isRoot ? undefined : () => handlers.onRemove(node.id)}
@@ -200,7 +199,7 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, me
 
 export default function OrgTreePanel({
   nodes, effRankMap, gapMap, selectedId,
-  onAdd, onRemove, onUpdate, onOpenMemo,
+  onAdd, onRemove, onUpdate,
   memoNodeId, onCloseMemo, onSaveMemo,
   onSaveTree, onLoadTree, onResetTree,
   periodLabel,
@@ -219,7 +218,6 @@ export default function OrgTreePanel({
     onAdd,
     onRemove,
     onUpdate,
-    onOpenMemo,
     onCloseMemo,
     onSaveMemo,
     onOpenEditor: (id) => setEditingId((cur) => (cur === id ? null : id)),

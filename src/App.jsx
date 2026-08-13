@@ -297,7 +297,6 @@ export default function App() {
           onAdd={handleAdd}
           onRemove={handleRemove}
           onUpdate={handleUpdate}
-          onOpenMemo={(id) => setMemoTarget({ nodeId: id, panel: 'org' })}
           memoNodeId={memoTarget?.panel === 'org' ? memoTarget.nodeId : null}
           onCloseMemo={() => setMemoTarget(null)}
           onSaveMemo={handleSaveMemo}

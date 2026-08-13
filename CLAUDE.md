@@ -42,6 +42,10 @@
 | 3. 내가 신경써야 할 소비자 | `rank: 'CSM'` (직급자 아님) |
 | (미지정) | `rank: 'NONE'` — 아직 명목 직급을 안 정한 자리 |
 
+> `status`(실질/예비)를 고르는 칸은 편집창에서 뺐다. 값은 노드에 그대로 남아
+> 있고 카드에도 뱃지로 보이지만, 지금은 화면에서 바꿀 길이 없어 새로 만든
+> 회원은 전부 `active`(실질)로 굳는다. 다시 쓰려면 편집창에 칸을 되살려야 한다.
+
 ## 기술 스택
 - React + Vite, Tailwind CSS
 - 상태: `App.jsx` 의 useState + localStorage 자동 저장
@@ -99,7 +103,7 @@ src/engine/rankEngine.js     실질 직급 계산 · 레그 카운팅 · 부족�
 src/engine/rankEngine.test.js 문서 인원 수치 대조 검증
 src/components/OrgTreePanel.jsx      좌: 계보도 구성 (카드 터치 → 직급 선택)
 src/components/EffectiveTreePanel.jsx 우: 실질 직급 계보도 (좌측에서 파생, 자동 반영)
-src/components/NodeEditorPopover.jsx 명목 직급 10종 선택 + 이름/ID/분류/PV
+src/components/NodeEditorPopover.jsx 이름/ID → 명목 직급(접힘) → 달성할 직급 → PV → 메모
 src/components/MemoPopover.jsx       메모 쪽지창 — 누른 카드 바로 밑에 뜬다 (양쪽 패널)
 src/components/NumberField.jsx       PV 입력칸 (0 이면 포커스 때 비운다)
 src/components/CaptureCaption.jsx    인쇄·그림에만 찍히는 대상 기간 머리글

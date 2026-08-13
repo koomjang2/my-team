@@ -1,7 +1,7 @@
+import { useState } from 'react'
 import {
   ALL_RANKS, NOMINAL_RANKS, RANK_COLORS_SOFT, RANK_COLORS_STRONG, RANK_LABEL, RANK_SHORT_LABEL,
-  RANK_RULES, RANK_NONE, hasMemberPv, isNonRank,
-  STATUS_ACTIVE, STATUS_PROSPECT, STATUS_LABEL,
+  RANK_NONE, hasMemberPv,
 } from '../engine/ranks.js'
 import NumberField from './NumberField.jsx'
 
@@ -12,6 +12,8 @@ function rankButtonClass(rank, selected) {
     : `${RANK_COLORS_SOFT[rank]} hover:brightness-95`
 }
 
+const RANK_BTN = 'rounded border px-1 py-1 text-[10px] font-bold leading-tight transition-colors'
+
 /**
  * 노드 카드를 터치하면 열리는 편집 팝오버.
  *
@@ -19,14 +21,23 @@ function rankButtonClass(rank, selected) {
  *   명목 직급   — 그 회원이 이름표로 달고 있는 직급 (예: 명목 STM)
  *   달성할 직급 — 이번 보름에 실제로 맞추려는 직급 (예: 이번엔 SRM)
  * 둘은 서로 독립이다.
+ *
+ * 위에서부터 이름 → 회원 ID → 명목 직급 → 달성할 직급 → PV → 메모 → 닫기 순이다.
+ * 손이 먼저 닿아야 하는 것(이름·ID)을 맨 위에 둔다.
  */
 export default function NodeEditorPopover({ node, onUpdate, onClose }) {
-  const rule = RANK_RULES[node.rank]
-  const isPvRank = rule?.type === 'pv'
   const isConsumer = node.rank === 'CSM'
   const isNone = node.rank === RANK_NONE
-  const nonRank = isNonRank(node.rank)
   const nominalRank = node.nominalRank ?? RANK_NONE
+
+  // 명목 직급은 한 번 정하면 다시 볼 일이 드물다 — 정해져 있으면 접어 두고,
+  // 접힌 버튼을 누르면 다시 펼쳐서 고칠 수 있게 한다.
+  const [nominalOpen, setNominalOpen] = useState(nominalRank === RANK_NONE)
+
+  function pickNominal(r) {
+    onUpdate({ nominalRank: r })
+    setNominalOpen(false) // 고르면 자연스럽게 접힌다
+  }
 
   return (
     <div
@@ -34,8 +45,7 @@ export default function NodeEditorPopover({ node, onUpdate, onClose }) {
       onClick={(e) => e.stopPropagation()}
       data-no-pan
     >
-      <div className="mb-1.5 flex items-center justify-between">
-        <span className="font-semibold text-gray-600">명목 직급</span>
+      <div className="mb-1.5 flex items-center justify-end">
         <button
           className="flex items-center gap-1 rounded border border-gray-200 px-1.5 py-0.5 font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700"
           onClick={onClose}
@@ -43,39 +53,6 @@ export default function NodeEditorPopover({ node, onUpdate, onClose }) {
         >
           ✕ 닫기
         </button>
-      </div>
-
-      <div className="mb-2 grid grid-cols-3 gap-1">
-        {NOMINAL_RANKS.map((r) => (
-          <button
-            key={r}
-            className={`rounded border px-1 py-1 text-[10px] font-bold leading-tight transition-colors
-              ${rankButtonClass(r, nominalRank === r)}`}
-            onClick={() => onUpdate({ nominalRank: r })}
-            title={RANK_LABEL[r]}
-          >
-            {r === RANK_NONE ? '없음' : r}
-          </button>
-        ))}
-      </div>
-
-      <div className="mb-1.5 border-t pt-1.5">
-        <span className="font-semibold text-gray-600">달성할 직급 선택</span>
-      </div>
-
-      <div className="mb-2 grid grid-cols-3 gap-1">
-        {ALL_RANKS.map((r) => (
-          <button
-            key={r}
-            className={`rounded border px-1 py-1 text-[10px] font-bold leading-tight transition-colors
-              ${rankButtonClass(r, node.rank === r)}`}
-            onClick={() => onUpdate({ rank: r })}
-            title={RANK_LABEL[r]}
-          >
-            <div>{r === RANK_NONE ? '없음' : r}</div>
-            <div className="font-normal opacity-80">{RANK_SHORT_LABEL[r]}</div>
-          </button>
-        ))}
       </div>
 
       <label className="mb-1 block">
@@ -98,38 +75,50 @@ export default function NodeEditorPopover({ node, onUpdate, onClose }) {
         />
       </label>
 
-      {!nonRank && (
-        <div className="mb-1.5">
-          <span className="text-gray-500">분류</span>
-          <div className="mt-0.5 flex gap-1">
-            {[STATUS_ACTIVE, STATUS_PROSPECT].map((s) => (
-              <button
-                key={s}
-                className={`flex-1 rounded border px-1 py-1 text-[10px] font-medium transition-colors
-                  ${node.status === s
-                    ? 'border-sky-400 bg-sky-50 text-sky-700'
-                    : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50'}`}
-                onClick={() => onUpdate({ status: s })}
-              >
-                {STATUS_LABEL[s]} 사업자
-              </button>
-            ))}
-          </div>
+      <div className="mb-1.5 border-t pt-1.5">
+        <span className="font-semibold text-gray-600">명목 직급</span>
+      </div>
+
+      {nominalOpen ? (
+        <div className="mb-2 grid grid-cols-3 gap-1">
+          {NOMINAL_RANKS.map((r) => (
+            <button
+              key={r}
+              className={`${RANK_BTN} ${rankButtonClass(r, nominalRank === r)}`}
+              onClick={() => pickNominal(r)}
+              title={RANK_LABEL[r]}
+            >
+              {r === RANK_NONE ? '없음' : r}
+            </button>
+          ))}
         </div>
+      ) : (
+        <button
+          className={`${RANK_BTN} mb-2 w-full ${rankButtonClass(nominalRank, true)}`}
+          onClick={() => setNominalOpen(true)}
+          title="다시 눌러 명목 직급을 고칩니다"
+        >
+          {nominalRank === RANK_NONE ? '없음' : nominalRank} · 눌러서 변경
+        </button>
       )}
 
-      {/* 직급 조건 안내 */}
-      {isPvRank && (
-        <p className="mb-1 rounded-md border border-sky-100 bg-sky-50/60 p-1.5 text-[10px] text-sky-800">
-          {node.rank} 조건 · 좌/우 각 {rule.targetMan}만 PV
-        </p>
-      )}
+      <div className="mb-1.5 border-t pt-1.5">
+        <span className="font-semibold text-gray-600">달성할 직급 선택</span>
+      </div>
 
-      {!isPvRank && !nonRank && (
-        <p className="mb-1 rounded-md border border-orange-100 bg-orange-50/70 p-1.5 text-[10px] text-orange-800">
-          {node.rank} 조건 · 좌/우 각 {rule.requires} {rule.count}명
-        </p>
-      )}
+      <div className="mb-2 grid grid-cols-3 gap-1">
+        {ALL_RANKS.map((r) => (
+          <button
+            key={r}
+            className={`${RANK_BTN} ${rankButtonClass(r, node.rank === r)}`}
+            onClick={() => onUpdate({ rank: r })}
+            title={RANK_LABEL[r]}
+          >
+            <div>{r === RANK_NONE ? '없음' : r}</div>
+            <div className="font-normal opacity-80">{RANK_SHORT_LABEL[r]}</div>
+          </button>
+        ))}
+      </div>
 
       {isNone && (
         <p className="mb-1 rounded-md border border-gray-200 bg-gray-50 p-1.5 text-[10px] text-gray-500">
@@ -160,6 +149,16 @@ export default function NodeEditorPopover({ node, onUpdate, onClose }) {
           />
         </label>
       )}
+
+      <label className="mb-1 block">
+        <span className="text-gray-500">메모</span>
+        <textarea
+          className="mt-0.5 min-h-[52px] w-full resize-y rounded border px-1.5 py-1 text-[11px] outline-none focus:border-sky-400"
+          value={node.memo ?? ''}
+          onChange={(e) => onUpdate({ memo: e.target.value })}
+          placeholder="이 사람에 대한 메모"
+        />
+      </label>
 
       {/* 오른쪽 위 ✕ 는 손가락으로 누르기 힘들다 — 폭을 꽉 채운 닫기를 하나 더 둔다 */}
       <button
