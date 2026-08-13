@@ -5,36 +5,35 @@ import TreeConnectors from './TreeConnectors.jsx'
 import CopyableId from './CopyableId.jsx'
 import TreePanelHeader from './TreePanelHeader.jsx'
 import CaptureCaption from './CaptureCaption.jsx'
+import MemoPopover from './MemoPopover.jsx'
 import { usePanZoom } from './usePanZoom.js'
 import { usePanelCapture } from './usePanelCapture.js'
 
 const CARD_WIDTH = 96
 const layout = makeLayout({ cardWidth: CARD_WIDTH, emptyLaneWidth: 114, branchGap: 40 })
 
-const TONE_STYLE = {
-  ok: 'border-emerald-500 bg-emerald-50',
-  short: 'border-rose-400 bg-rose-50',
-  none: 'border-slate-300 bg-slate-50',
-}
-
 /**
- * 이 패널은 실질 직급만 보여준다 — 명목 직급은 왼쪽 '계보도 구성' 쪽 관심사다.
- * 달성 여부에 따라 색만 갈라 두고, 못 간 경우 무엇이 부족한지 덧붙인다.
+ * 이 패널이 **글자로** 보여주는 직급은 실질 직급뿐이다 — 명목 직급은 왼쪽 관심사다.
+ * 다만 카드 **색**은 그 사람을 어느 직급으로 보내기로 했는지(달성할 직급)를 따른다.
+ * 목표색 카드에 실질 직급이 적히므로, 목표와 결과가 어긋난 자리가 눈에 띈다.
  */
-function EffectiveCard({ node, effRank, gap, onSelect, onOpenMemo, isSelected }) {
+function EffectiveCard({
+  node, effRank, gap, onSelect, onOpenMemo, isSelected,
+  memoOpen, onCloseMemo, onSaveMemo,
+}) {
   const nonRank = isNonRank(node.rank)
-  const tone = nonRank ? 'none' : gap?.achieved ? 'ok' : 'short'
+  const colorClass = RANK_COLORS[node.rank] ?? 'border-gray-300 bg-gray-100 text-gray-500'
   const displayRank = rankDisplay(nonRank ? node.rank : effRank)
 
   return (
     <div
       data-tree-node="true"
-      className={`tree-node-card cursor-pointer rounded-lg border-2 px-1.5 py-1 text-center transition-all
-        ${TONE_STYLE[tone]} ${isSelected ? 'ring-2 ring-blue-500 ring-offset-1' : 'hover:-translate-y-[1px]'}`}
+      className={`tree-node-card relative cursor-pointer rounded-lg border-2 px-1.5 py-1 text-center transition-all
+        ${colorClass} ${isSelected ? 'ring-2 ring-blue-500 ring-offset-1' : 'hover:-translate-y-[1px]'}`}
       style={{ width: CARD_WIDTH }}
       onClick={onSelect}
     >
-      <div className={`mx-auto inline-block rounded border px-1.5 text-[11px] font-bold ${RANK_COLORS[effRank] ?? 'border-gray-300 bg-gray-100 text-gray-500'}`}>
+      <div className="mx-auto inline-block rounded border border-white/70 bg-white/80 px-1.5 text-[11px] font-bold text-gray-800">
         {displayRank}
       </div>
       <div className="mt-0.5 truncate text-[11px] font-semibold text-gray-800">{node.name || '이름 없음'}</div>
@@ -54,11 +53,15 @@ function EffectiveCard({ node, effRank, gap, onSelect, onOpenMemo, isSelected })
       >
         메모{node.memo?.trim() ? ' •' : ''}
       </button>
+
+      {memoOpen && (
+        <MemoPopover node={node} onSave={onSaveMemo} onClose={onCloseMemo} />
+      )}
     </div>
   )
 }
 
-function EffectiveNode({ nodeId, nodes, effRankMap, gapMap, selectedId, onSelect, onOpenMemo }) {
+function EffectiveNode({ nodeId, nodes, effRankMap, gapMap, selectedId, onSelect, onOpenMemo, memoNodeId, onCloseMemo, onSaveMemo }) {
   const node = nodes.find((n) => n.id === nodeId)
   if (!node) return null
   const row = layout.childRow(nodeId, nodes)
@@ -76,6 +79,9 @@ function EffectiveNode({ nodeId, nodes, effRankMap, gapMap, selectedId, onSelect
           isSelected={selectedId === node.id}
           onSelect={() => onSelect(node.id)}
           onOpenMemo={() => onOpenMemo(node.id)}
+          memoOpen={memoNodeId === node.id}
+          onCloseMemo={onCloseMemo}
+          onSaveMemo={onSaveMemo}
         />
       )}
       {row.hasChildren && (
@@ -84,13 +90,13 @@ function EffectiveNode({ nodeId, nodes, effRankMap, gapMap, selectedId, onSelect
           <div className="flex" style={{ width: row.childRowWidth }}>
             <div className="flex flex-col items-center" style={{ width: row.leftLaneWidth }}>
               {row.hasLeft && (
-                <EffectiveNode nodeId={row.left.id} nodes={nodes} effRankMap={effRankMap} gapMap={gapMap} selectedId={selectedId} onSelect={onSelect} onOpenMemo={onOpenMemo} />
+                <EffectiveNode nodeId={row.left.id} nodes={nodes} effRankMap={effRankMap} gapMap={gapMap} selectedId={selectedId} onSelect={onSelect} onOpenMemo={onOpenMemo} memoNodeId={memoNodeId} onCloseMemo={onCloseMemo} onSaveMemo={onSaveMemo} />
               )}
             </div>
             <div style={{ width: layout.branchGap }} />
             <div className="flex flex-col items-center" style={{ width: row.rightLaneWidth }}>
               {row.hasRight && (
-                <EffectiveNode nodeId={row.right.id} nodes={nodes} effRankMap={effRankMap} gapMap={gapMap} selectedId={selectedId} onSelect={onSelect} onOpenMemo={onOpenMemo} />
+                <EffectiveNode nodeId={row.right.id} nodes={nodes} effRankMap={effRankMap} gapMap={gapMap} selectedId={selectedId} onSelect={onSelect} onOpenMemo={onOpenMemo} memoNodeId={memoNodeId} onCloseMemo={onCloseMemo} onSaveMemo={onSaveMemo} />
               )}
             </div>
           </div>
@@ -102,6 +108,7 @@ function EffectiveNode({ nodeId, nodes, effRankMap, gapMap, selectedId, onSelect
 
 export default function EffectiveTreePanel({
   nodes, effRankMap, gapMap, selectedId, onSelect, onOpenMemo, rootNode, style,
+  memoNodeId, onCloseMemo, onSaveMemo,
   onSaveTree, onLoadTree, onResetTree,
   periodLabel, summaryOpen, onToggleSummary,
 }) {
@@ -220,6 +227,9 @@ export default function EffectiveTreePanel({
                 selectedId={selectedId}
                 onSelect={onSelect}
                 onOpenMemo={onOpenMemo}
+                memoNodeId={memoNodeId}
+                onCloseMemo={onCloseMemo}
+                onSaveMemo={onSaveMemo}
               />
             ))}
           </div>

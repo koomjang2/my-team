@@ -30,6 +30,14 @@
     cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 24 24' fill='white' stroke='%23334155' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><path d='M18 11V8a2 2 0 0 0-4 0'/><path d='M14 10V6a2 2 0 0 0-4 0v4'/><path d='M10 10V7a2 2 0 0 0-4 0v6'/><path d='M18 9a2 2 0 1 1 4 0v5a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34L2.42 16.1a2 2 0 0 1 2.83-2.82L7 15'/></svg>") 12 12, grabbing !important;
   }
 
+  /* 카드를 잡고도 화면을 끌 수 있도록 브라우저 제스처를 넘겨받는다.
+     touch-action 은 조상에서 none 이면 자손이 auto 로 되돌릴 수 없으므로
+     팬 영역 전체가 아니라 **카드에만** 건다 — 팝오버의 입력칸·메모 글상자는
+     카드의 형제라서 영향을 받지 않는다. */
+  .tree-node-card {
+    touch-action: none;
+  }
+
   /* 가로로 흘려보내되 스크롤막대는 감춘다 — 막대가 머리줄 높이를 밀어 올리기 때문 */
   .no-scrollbar {
     scrollbar-width: none;
@@ -46,6 +54,12 @@
   body.capture-mode .capture-only,
   body.print-panel-mode .print-target .capture-only {
     display: block;
+  }
+
+  /* html-to-image 는 인쇄용 CSS 를 보지 않는다 — 그림 저장 때도 .no-print 를 직접 걷어낸다.
+     이게 없으면 열어 둔 편집창·메모창이 그림에 그대로 찍힌다. */
+  body.capture-mode .no-print {
+    display: none !important;
   }
 
   /* 상하 분할 기준선을 끄는 동안에는 화면 전체가 세로 리사이즈 커서 */

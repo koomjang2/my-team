@@ -97,6 +97,37 @@ export const RANK_COLORS = {
   IM: 'bg-red-100 text-red-800 border-red-500',
 }
 
+/**
+ * 직급 선택 버튼용 두 벌 — 고르기 전에는 옅게(SOFT), 고르면 선명하게(STRONG).
+ * 색만 다를 뿐 RANK_COLORS 와 같은 계열이라 카드 색과 눈으로 이어진다.
+ * Tailwind 는 소스에서 문자열을 그대로 훑어가므로 반드시 완성된 클래스명으로 적는다.
+ */
+export const RANK_COLORS_SOFT = {
+  NONE: 'bg-white text-gray-400 border-dashed border-gray-300',
+  CSM: 'bg-slate-50 text-slate-400 border-slate-200',
+  SSM: 'bg-gray-50 text-gray-400 border-gray-200',
+  SM: 'bg-blue-50 text-blue-400 border-blue-200',
+  DM: 'bg-orange-50 text-orange-400 border-orange-200',
+  SRM: 'bg-green-50 text-green-500 border-green-200',
+  STM: 'bg-purple-50 text-purple-400 border-purple-200',
+  RM: 'bg-yellow-50 text-yellow-600 border-yellow-200',
+  CM: 'bg-pink-50 text-pink-400 border-pink-200',
+  IM: 'bg-red-50 text-red-400 border-red-200',
+}
+
+export const RANK_COLORS_STRONG = {
+  NONE: 'bg-gray-500 text-white border-gray-600',
+  CSM: 'bg-slate-500 text-white border-slate-700',
+  SSM: 'bg-gray-500 text-white border-gray-700',
+  SM: 'bg-blue-500 text-white border-blue-700',
+  DM: 'bg-orange-500 text-white border-orange-700',
+  SRM: 'bg-green-600 text-white border-green-800',
+  STM: 'bg-purple-500 text-white border-purple-700',
+  RM: 'bg-yellow-500 text-white border-yellow-700',
+  CM: 'bg-pink-500 text-white border-pink-700',
+  IM: 'bg-red-500 text-white border-red-700',
+}
+
 /** 사업자 분류: 실질(지금 직급을 맞추고 있는) / 예비(앞으로 맞추게 될) */
 export const STATUS_ACTIVE = 'active'
 export const STATUS_PROSPECT = 'prospect'

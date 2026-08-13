@@ -2,6 +2,8 @@ import { useEffect, useRef } from 'react'
 
 const ZOOM_MIN = 0.3
 const ZOOM_MAX = 3
+// 이만큼 움직이면 '누른 것' 이 아니라 '끈 것' 으로 본다 — 카드를 눌러도 팬이 되게 하려면 필요하다
+const DRAG_SLOP = 6
 
 /**
  * 빈 바탕 드래그 팬 + 휠/핀치 줌.
@@ -16,6 +18,8 @@ export function usePanZoom() {
     startX: 0, startY: 0,
     panStartX: 0, panStartY: 0,
     panX: 0, panY: 0, zoom: 1,
+    dragged: false,       // 이번 눌림에서 DRAG_SLOP 을 넘겼는가
+    suppressClick: false, // 끌고 난 뒤 따라오는 click 한 번을 삼킨다
     pinchActive: false,
     pinchStartDist: 0,
     pinchStartZoom: 1,
@@ -52,15 +56,23 @@ export function usePanZoom() {
     s.zoom = clamped
   }
 
-  // 버튼/입력/노드 카드 위에서는 팬을 시작하지 않는다 — 빈 바탕만 허용
+  // 버튼·입력칸·팝오버 위에서는 팬을 시작하지 않는다.
+  // 노드 카드는 **허용한다** — 카드를 잡고도 화면을 끌 수 있어야 하기 때문이다.
+  // 대신 살짝 눌렀다 뗀 것(탭)은 그대로 click 으로 흘려보내 편집창이 열리게 한다.
   function isPanStart(target) {
     if (!target) return false
-    return !target.closest('button, input, select, textarea, .tree-node-card, [data-no-pan]')
+    return !target.closest('button, input, select, textarea, [data-no-pan]')
+  }
+
+  /** 카드 위에서 시작한 눌림인가 — 터치에서 click 을 살려 두어야 하는 경우 */
+  function isOnCard(target) {
+    return !!target?.closest?.('.tree-node-card')
   }
 
   function panStart(clientX, clientY) {
     const s = stateRef.current
     s.active = true
+    s.dragged = false
     s.startX = clientX
     s.startY = clientY
     s.panStartX = s.panX
@@ -71,8 +83,14 @@ export function usePanZoom() {
   function panMove(clientX, clientY) {
     const s = stateRef.current
     if (!s.active) return
-    s.panX = s.panStartX + (clientX - s.startX)
-    s.panY = s.panStartY + (clientY - s.startY)
+    const dx = clientX - s.startX
+    const dy = clientY - s.startY
+    if (!s.dragged && Math.hypot(dx, dy) > DRAG_SLOP) {
+      s.dragged = true
+      s.suppressClick = true // 끌었으니 카드가 열리면 안 된다
+    }
+    s.panX = s.panStartX + dx
+    s.panY = s.panStartY + dy
     apply()
   }
 
@@ -85,6 +103,8 @@ export function usePanZoom() {
 
   function onMouseDown(e) {
     if (e.button !== 0) return
+    // 누를 때마다 먼저 푼다 — 끌고 난 뒤 버튼을 누르면 그 첫 탭이 삼켜지기 때문
+    stateRef.current.suppressClick = false
     if (!isPanStart(e.target)) return
     panStart(e.clientX, e.clientY)
     e.preventDefault()
@@ -110,6 +130,21 @@ export function usePanZoom() {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
     }
+  }, [])
+
+  // 끌어서 화면을 옮긴 직후 따라오는 click 한 번을 잡아먹는다.
+  // 이게 없으면 카드를 잡고 화면을 끌 때마다 편집창이 열린다.
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    function onClickCapture(e) {
+      if (!stateRef.current.suppressClick) return
+      stateRef.current.suppressClick = false
+      e.stopPropagation()
+      e.preventDefault()
+    }
+    container.addEventListener('click', onClickCapture, true)
+    return () => container.removeEventListener('click', onClickCapture, true)
   }, [])
 
   // 휠: Ctrl/Cmd 는 줌(마우스 위치 기준), 평소엔 팬
@@ -158,9 +193,12 @@ export function usePanZoom() {
       }
       if (e.touches.length === 1 && !s.pinchActive) {
         const t = e.touches[0]
+        s.suppressClick = false
         if (!isPanStart(t.target)) return
         panStart(t.clientX, t.clientY)
-        e.preventDefault()
+        // 카드 위에서는 touchstart 를 막지 않는다 — 막으면 탭이 click 으로 이어지지 않아
+        // 편집창이 열리지 않는다. 실제로 끌기 시작하면 touchmove 에서 막는다.
+        if (!isOnCard(t.target)) e.preventDefault()
       }
     }
 

@@ -20,6 +20,12 @@
 | **달성할 직급** | `node.rank` | 이번 보름에 맞추려는 목표 | 왼쪽 카드 · 팝오버 '달성할 직급 선택' 10종 |
 | **실질 직급** | 계산값 | 조건을 실제로 만족한 직급 | 오른쪽 패널 |
 
+### 카드 색이 따르는 직급 (헷갈리기 쉬움)
+| 패널 | 카드 색 | 카드에 적히는 직급 |
+|---|---|---|
+| 좌 · 계보도 구성 | **명목 직급** | 달성할 직급 |
+| 우 · 실질 직급 계보도 | **달성할 직급** | 실질 직급 |
+
 셋은 서로 독립이다. 예: **명목 STM 인데 이번 보름은 실질 SRM** 인 경우가 정상이다.
 명목 직급은 계산에 전혀 쓰지 않는다 — 순수 표시용이다.
 오른쪽 패널에는 실질 직급만 표기한다. 두 패널을 나란히 놓고 비교하는 것이 설계 의도다.
@@ -80,7 +86,9 @@ SSM → SM → DM → SRM → STM → RM → CM → IM
 - **DM 이상 직급자는 몸PV로 직급 달성 불가.** 회원PV(몸PV) 입력란은 SSM/SM/DM 에 표시하되
   달성 판정에는 쓰지 않는다. (DM 은 기록 목적)
 - CSM(소비자)·NONE(없음)은 어떤 직급 자격에도 카운트되지 않는다.
-- 오른쪽 실질 계보도에 명목 직급이나 달성할 직급을 노출하지 않는다.
+- 오른쪽 실질 계보도에 명목 직급이나 달성할 직급을 **글자로** 노출하지 않는다.
+  (예외: 카드 **색**은 달성할 직급을 따른다 — 목표색 카드에 실질 직급이 적히므로
+  목표와 결과가 어긋난 자리가 눈에 띈다. 색은 계산이 아니라 표시다.)
 - 명목 직급은 계산 로직에 절대 넣지 않는다.
 - 실질 직급은 하위에만 의존하므로 아래에서 위로 한 번에 확정된다 (순환 없음).
 
@@ -92,9 +100,13 @@ src/engine/rankEngine.test.js 문서 인원 수치 대조 검증
 src/components/OrgTreePanel.jsx      좌: 계보도 구성 (카드 터치 → 직급 선택)
 src/components/EffectiveTreePanel.jsx 우: 실질 직급 계보도 (좌측에서 파생, 자동 반영)
 src/components/NodeEditorPopover.jsx 명목 직급 10종 선택 + 이름/ID/분류/PV
-src/components/MemoSnackbar.jsx      메모 스낵바 (수정 / 닫기) — 양쪽 패널에서 연다
+src/components/MemoPopover.jsx       메모 쪽지창 — 누른 카드 바로 밑에 뜬다 (양쪽 패널)
+src/components/NumberField.jsx       PV 입력칸 (0 이면 포커스 때 비운다)
+src/components/CaptureCaption.jsx    인쇄·그림에만 찍히는 대상 기간 머리글
+src/components/TreePanelHeader.jsx   두 패널 공용 머리줄 (제목 + 메뉴 + 요약 접기)
 src/components/CopyableId.jsx        회원 ID + 복사 아이콘 (clipboard API, execCommand 폴백)
 src/components/usePanZoom.js         팬 + 휠줌 + 핀치줌 (두 패널 공용)
+src/components/usePanelCapture.js    인쇄 / 그림(JPG) 저장 — 누른 패널만 대상
 src/components/treeLayout.js         이진 트리 폭 계산 (두 패널 공용)
 ```
 

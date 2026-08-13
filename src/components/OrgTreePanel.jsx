@@ -7,6 +7,7 @@ import NodeEditorPopover from './NodeEditorPopover.jsx'
 import CopyableId from './CopyableId.jsx'
 import TreePanelHeader from './TreePanelHeader.jsx'
 import CaptureCaption from './CaptureCaption.jsx'
+import MemoPopover from './MemoPopover.jsx'
 import { usePanZoom } from './usePanZoom.js'
 import { usePanelCapture } from './usePanelCapture.js'
 
@@ -16,8 +17,10 @@ const layout = makeLayout({ cardWidth: CARD_WIDTH, emptyLaneWidth: 130, branchGa
 function NodeCard({
   node, effRank, gap, isSelected, isEditing,
   onOpenEditor, onOpenMemo, onAddLeft, onAddRight, onRemove, canAddLeft, canAddRight,
+  memoOpen, onCloseMemo, onSaveMemo,
 }) {
-  const colorClass = RANK_COLORS[node.rank] ?? 'bg-gray-100 text-gray-700 border-gray-300'
+  // 왼쪽 '계보도 구성' 카드 색은 **명목 직급** 을 따른다 (오른쪽은 달성할 직급을 따른다)
+  const colorClass = RANK_COLORS[node.nominalRank ?? RANK_NONE] ?? 'bg-gray-100 text-gray-700 border-gray-300'
   // 없음/소비자는 직급 판정 대상이 아니다
   const nonRank = isNonRank(node.rank)
   // 명목 직급에 실제로 도달하는지 — 오른쪽 실질 계보도와 같은 판정
@@ -71,7 +74,7 @@ function NodeCard({
           </div>
         )}
 
-        {/* 메모 영역만 팝오버 대신 스낵바를 연다 */}
+        {/* 메모는 직급 편집창 대신 카드 밑 쪽지창을 연다 */}
         <button
           className="mt-1 w-full rounded border border-white/70 bg-white/70 py-0.5 text-[10px] font-medium text-gray-600 transition-colors hover:bg-white"
           onClick={(e) => { e.stopPropagation(); onOpenMemo() }}
@@ -90,6 +93,11 @@ function NodeCard({
           >
             ×
           </button>
+        )}
+
+        {/* 메모는 이 카드 바로 밑에 겹쳐 뜬다 — 계보도 배치를 밀지 않도록 absolute */}
+        {memoOpen && (
+          <MemoPopover node={node} onSave={onSaveMemo} onClose={onCloseMemo} />
         )}
       </div>
 
@@ -121,7 +129,7 @@ function NodeCard({
   )
 }
 
-function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, handlers }) {
+function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, memoNodeId, handlers }) {
   const node = nodes.find((n) => n.id === nodeId)
   if (!node) return null
 
@@ -143,6 +151,9 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, ha
         onAddLeft={() => handlers.onAdd(node.id, 'left')}
         onAddRight={() => handlers.onAdd(node.id, 'right')}
         onRemove={isRoot ? undefined : () => handlers.onRemove(node.id)}
+        memoOpen={memoNodeId === node.id}
+        onCloseMemo={handlers.onCloseMemo}
+        onSaveMemo={handlers.onSaveMemo}
       />
 
       {editingId === node.id && (
@@ -163,7 +174,7 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, ha
                   <div className="mb-0.5 text-[10px] font-bold text-blue-500">좌</div>
                   <TreeNode
                     nodeId={row.left.id} nodes={nodes} effRankMap={effRankMap} gapMap={gapMap}
-                    editingId={editingId} selectedId={selectedId} handlers={handlers}
+                    editingId={editingId} selectedId={selectedId} memoNodeId={memoNodeId} handlers={handlers}
                   />
                 </>
               )}
@@ -175,7 +186,7 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, ha
                   <div className="mb-0.5 text-[10px] font-bold text-orange-500">우</div>
                   <TreeNode
                     nodeId={row.right.id} nodes={nodes} effRankMap={effRankMap} gapMap={gapMap}
-                    editingId={editingId} selectedId={selectedId} handlers={handlers}
+                    editingId={editingId} selectedId={selectedId} memoNodeId={memoNodeId} handlers={handlers}
                   />
                 </>
               )}
@@ -190,6 +201,7 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, ha
 export default function OrgTreePanel({
   nodes, effRankMap, gapMap, selectedId,
   onAdd, onRemove, onUpdate, onOpenMemo,
+  memoNodeId, onCloseMemo, onSaveMemo,
   onSaveTree, onLoadTree, onResetTree,
   periodLabel,
   style,
@@ -208,6 +220,8 @@ export default function OrgTreePanel({
     onRemove,
     onUpdate,
     onOpenMemo,
+    onCloseMemo,
+    onSaveMemo,
     onOpenEditor: (id) => setEditingId((cur) => (cur === id ? null : id)),
   }
 
@@ -244,6 +258,7 @@ export default function OrgTreePanel({
                 gapMap={gapMap}
                 editingId={editingId}
                 selectedId={selectedId}
+                memoNodeId={memoNodeId}
                 handlers={handlers}
               />
             ))}
