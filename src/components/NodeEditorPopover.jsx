@@ -126,8 +126,8 @@ export default function NodeEditorPopover({ node, onUpdate, onClose }) {
         </p>
       )}
 
-      {/* 회원PV(몸PV) — SSM / SM / DM */}
-      {hasMemberPv(node.rank) && (
+      {/* 회원PV(몸PV) — 명목 직급이 SRM 이상이면 숨긴다 */}
+      {hasMemberPv(node.nominalRank) && (
         <label className="mb-1 block rounded-md border border-emerald-100 bg-emerald-50/60 p-1.5">
           <span className="text-[10px] font-medium text-emerald-800">회원PV(몸PV) · 만</span>
           <NumberField

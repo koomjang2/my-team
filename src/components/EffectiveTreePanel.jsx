@@ -37,8 +37,8 @@ function EffectiveCard({ node, gap, onSelect, isSelected }) {
       <div className="mt-0.5 truncate text-xs font-semibold text-gray-800">{node.name || '이름 없음'}</div>
       <CopyableId value={node.memberId} size="name" />
 
-      {/* 회원PV 도 왼쪽과 같은 조건·같은 모양으로 — 한쪽에만 보이면 헷갈린다 */}
-      {hasMemberPv(node.rank) && (node.memberPvMan ?? 0) > 0 && (
+      {/* 회원PV 도 왼쪽과 같은 조건(명목 직급 기준)·같은 모양으로 — 한쪽에만 보이면 헷갈린다 */}
+      {hasMemberPv(node.nominalRank) && (node.memberPvMan ?? 0) > 0 && (
         <div className="truncate text-[9px] text-emerald-700">회원PV {node.memberPvMan}만</div>
       )}
 

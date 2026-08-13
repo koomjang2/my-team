@@ -12,6 +12,24 @@
 (빈 폴더 `.claude/worktrees/vercel-pull-latest-files-6fa0d8` 가 남아 있을 수
 있는데, git 에는 등록돼 있지 않은 껍데기라 지워도 무방하다.)
 
+## 이번 세션에서 한 일 (8) — 회원PV 표시 기준을 명목 직급으로
+
+`hasMemberPv(rank)` 가 **목표 직급**(`node.rank`) 을 받아 `SSM/SM/DM` 인지 보던 걸,
+**명목 직급**(`node.nominalRank`) 을 받아 `SRM 미만인지` 로 바꿨다.
+- `ranks.js`: `MEMBER_PV_RANKS` 배열 삭제, `MEMBER_PV_CEILING = 'SRM'` 추가.
+  `hasMemberPv(nominalRank)` 은 `RANK_LEVEL[nominalRank] < RANK_LEVEL.SRM`.
+- 호출부 3곳 모두 인자를 `node.rank` → `node.nominalRank` 로 바꿨다:
+  `NodeEditorPopover.jsx`(입력칸), `OrgTreePanel.jsx`(나의 계보도 카드),
+  `EffectiveTreePanel.jsx`(목표 계보도 카드) — 셋이 항상 같은 값을 봐야
+  한쪽 카드에서만 보였다 안 보였다 하지 않는다.
+
+**주의**: 목표 직급이 SSM/SM/DM 이어도 명목이 SRM 이상이면 이제 PV 칸이 없다.
+값 자체(`memberPvMan`)는 지워지지 않는다 — 명목을 다시 낮추면 그대로 다시 보인다.
+
+**검증**: 명목 RM(목표 DM)에서 PV 칸 없음 → 명목 SM 으로 바꾸니 나타남 → 100 입력
+→ 나의 계보도·목표 계보도 카드 둘 다 `회원PV 100만` 표시 → 명목 SRM 으로 올리니
+칸과 카드 표시 둘 다 사라짐(값은 유지) 을 순서대로 확인. `npm test` · `npm run build` 통과.
+
 ## 이번 세션에서 한 일 (7) — 목표 계보도는 '목표'를 그대로 보여준다
 
 `EffectiveCard` 의 `displayRank` 를 `실질 직급` → **`node.rank`(목표 직급)** 로 바꿨다.

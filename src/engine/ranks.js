@@ -79,10 +79,11 @@ export const RANK_RULES = {
 }
 
 /**
- * 회원PV(몸PV) 입력란을 띄우는 직급.
- * DM 은 몸PV 로 직급을 달성할 수는 없지만 본인 몸PV 자체는 기록해 둔다.
+ * 회원PV(몸PV) 입력란을 띄우는 기준 직급.
+ * SRM(4) 이상은 이미 위 단계로 올라간 사람이라 몸PV 를 더 기록할 이유가 없다.
+ * 이 값 미만(NONE·SSM·SM·DM)이면 보여준다.
  */
-export const MEMBER_PV_RANKS = ['SSM', 'SM', 'DM']
+export const MEMBER_PV_CEILING = 'SRM'
 
 export const RANK_COLORS = {
   NONE: 'bg-white text-gray-400 border-dashed border-gray-300',
@@ -144,8 +145,12 @@ export function isBusinessRank(rank) {
 }
 
 /** 회원PV(몸PV) 를 입력받는 직급인가 */
-export function hasMemberPv(rank) {
-  return MEMBER_PV_RANKS.includes(rank)
+/**
+ * 회원PV(몸PV) 입력란을 보여줄지 — **명목 직급** 기준으로 판단한다
+ * (예전엔 목표 직급 기준이었다). 명목 직급이 정해지지 않았으면(undefined) NONE 취급.
+ */
+export function hasMemberPv(nominalRank) {
+  return RANK_LEVEL[nominalRank ?? RANK_NONE] < RANK_LEVEL[MEMBER_PV_CEILING]
 }
 
 /** 직급자가 아닌 분류 (없음 / 소비자) */

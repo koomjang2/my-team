@@ -60,7 +60,8 @@ function NodeCard({
         <div className="mt-0.5 truncate text-xs font-semibold">{node.name || '이름 없음'}</div>
         <CopyableId value={node.memberId} size="name" />
 
-        {hasMemberPv(node.rank) && (node.memberPvMan ?? 0) > 0 && (
+        {/* 명목 직급이 SRM 이상이면 숨긴다 — 목표 직급과 무관 */}
+        {hasMemberPv(node.nominalRank) && (node.memberPvMan ?? 0) > 0 && (
           <div className="truncate text-[9px] text-emerald-700">회원PV {node.memberPvMan}만</div>
         )}
 
