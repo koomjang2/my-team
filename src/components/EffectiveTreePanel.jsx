@@ -4,6 +4,7 @@ import { makeLayout, collapseHidden } from './treeLayout.js'
 import TreeConnectors from './TreeConnectors.jsx'
 import CopyableId from './CopyableId.jsx'
 import TreePanelHeader from './TreePanelHeader.jsx'
+import CaptureCaption from './CaptureCaption.jsx'
 import { usePanZoom } from './usePanZoom.js'
 import { usePanelCapture } from './usePanelCapture.js'
 
@@ -102,6 +103,7 @@ function EffectiveNode({ nodeId, nodes, effRankMap, gapMap, selectedId, onSelect
 export default function EffectiveTreePanel({
   nodes, effRankMap, gapMap, selectedId, onSelect, onOpenMemo, rootNode, style,
   onSaveTree, onLoadTree, onResetTree,
+  periodLabel, summaryOpen, onToggleSummary,
 }) {
   const { containerRef, layerRef, onMouseDown, resetView } = usePanZoom()
   const panelRef = useRef(null)
@@ -145,15 +147,17 @@ export default function EffectiveTreePanel({
         onImage={saveImage}
         onFocusRoot={resetView}
         onReset={onResetTree}
+        summaryOpen={summaryOpen}
+        onToggleSummary={onToggleSummary}
       />
 
-      {rootNode && rootIsNone && (
+      {summaryOpen && rootNode && rootIsNone && (
         <div className="border-b bg-slate-50 px-3 py-2 text-xs text-gray-500">
           맨 위에서 달성하고자 하는 직급을 정하면 무엇이 부족한지 계산합니다.
         </div>
       )}
 
-      {rootNode && !rootIsNone && (
+      {summaryOpen && rootNode && !rootIsNone && (
         <div className={`border-b px-3 py-2 text-xs ${rootGap?.achieved ? 'bg-emerald-50' : 'bg-rose-50'}`}>
           <div className="font-semibold text-gray-800">
             {rootNode.name || '나'} · 목표 {rankDisplay(rootNode.rank)}
@@ -180,7 +184,7 @@ export default function EffectiveTreePanel({
         </div>
       )}
 
-      <div className="flex flex-wrap gap-1 border-b px-3 py-1.5">
+      <div className={`${summaryOpen ? 'flex' : 'hidden'} flex-wrap gap-1 border-b px-3 py-1.5`}>
         {BUSINESS_RANKS.slice().reverse().map((r) =>
           counts[r] ? (
             <span key={r} className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${RANK_COLORS[r]}`}>
@@ -205,6 +209,7 @@ export default function EffectiveTreePanel({
       >
         <div ref={layerRef} className="will-change-transform" style={{ transform: 'translate(0px, 0px) scale(1)', transformOrigin: '0 0' }}>
           <div ref={innerRef} className="origin-top scale-[0.85] transform md:scale-100">
+            <CaptureCaption title="실질 직급 계보도" periodLabel={periodLabel} />
             {roots.map((root) => (
               <EffectiveNode
                 key={root.id}

@@ -14,6 +14,8 @@ export function usePanelCapture({ panelRef, containerRef, innerRef, imageName })
     const prevOverflow = container.style.overflow
     inner.style.transform = 'none'
     container.style.overflow = 'visible'
+    // 대상 기간 머리글은 평소 숨겨져 있다 — 크기를 재기 전에 먼저 띄운다
+    document.body.classList.add('capture-mode')
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
 
     try {
@@ -32,6 +34,7 @@ export function usePanelCapture({ panelRef, containerRef, innerRef, imageName })
     } catch (e) {
       alert('이미지 저장 실패: ' + e.message)
     } finally {
+      document.body.classList.remove('capture-mode')
       inner.style.transform = prevTransform
       container.style.overflow = prevOverflow
     }

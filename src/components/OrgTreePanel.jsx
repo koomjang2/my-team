@@ -6,6 +6,7 @@ import TreeConnectors from './TreeConnectors.jsx'
 import NodeEditorPopover from './NodeEditorPopover.jsx'
 import CopyableId from './CopyableId.jsx'
 import TreePanelHeader from './TreePanelHeader.jsx'
+import CaptureCaption from './CaptureCaption.jsx'
 import { usePanZoom } from './usePanZoom.js'
 import { usePanelCapture } from './usePanelCapture.js'
 
@@ -82,7 +83,7 @@ function NodeCard({
 
         {onRemove && (
           <button
-            className="absolute -right-2 -top-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-gray-300 text-[10px] text-gray-500 opacity-30 transition-opacity hover:opacity-80"
+            className="absolute -right-2 -top-2 z-10 flex h-4 w-4 items-center justify-center rounded-full bg-gray-400 text-[10px] text-white opacity-75 transition-opacity hover:opacity-100"
             style={{ lineHeight: 1 }}
             onClick={(e) => { e.stopPropagation(); onRemove() }}
             title="삭제"
@@ -190,6 +191,7 @@ export default function OrgTreePanel({
   nodes, effRankMap, gapMap, selectedId,
   onAdd, onRemove, onUpdate, onOpenMemo,
   onSaveTree, onLoadTree, onResetTree,
+  periodLabel,
   style,
 }) {
   const [editingId, setEditingId] = useState(null)
@@ -213,7 +215,7 @@ export default function OrgTreePanel({
     <aside
       ref={panelRef}
       style={style}
-      className="tree-panel split-pane-top flex w-full min-h-0 flex-shrink-0 flex-col overflow-hidden border-b bg-white md:w-1/2 md:border-b-0 md:border-r"
+      className="tree-panel split-pane-top flex w-full min-h-0 flex-shrink-0 flex-col overflow-hidden border-b bg-white"
     >
       <TreePanelHeader
         title="계보도 구성"
@@ -232,6 +234,7 @@ export default function OrgTreePanel({
       >
         <div ref={layerRef} className="will-change-transform" style={{ transform: 'translate(0px, 0px) scale(1)', transformOrigin: '0 0' }}>
           <div ref={innerRef} className="origin-top scale-[0.85] transform transition-transform md:scale-100">
+            <CaptureCaption title="계보도 구성" periodLabel={periodLabel} />
             {roots.map((root) => (
               <TreeNode
                 key={root.id}

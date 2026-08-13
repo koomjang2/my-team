@@ -30,11 +30,22 @@
     cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='26' height='26' viewBox='0 0 24 24' fill='white' stroke='%23334155' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'><path d='M18 11V8a2 2 0 0 0-4 0'/><path d='M14 10V6a2 2 0 0 0-4 0v4'/><path d='M10 10V7a2 2 0 0 0-4 0v6'/><path d='M18 9a2 2 0 1 1 4 0v5a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34L2.42 16.1a2 2 0 0 1 2.83-2.82L7 15'/></svg>") 12 12, grabbing !important;
   }
 
-  /* md 이상(좌우 배치)에서는 상하 분할 비율(인라인 height)을 무효화한다 */
-  @media (min-width: 768px) {
-    .split-pane-top {
-      height: auto !important;
-    }
+  /* 가로로 흘려보내되 스크롤막대는 감춘다 — 막대가 머리줄 높이를 밀어 올리기 때문 */
+  .no-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 인쇄·그림 저장에만 딸려 나가는 머리글(대상 기간) — 화면에서는 보이지 않는다 */
+  .capture-only {
+    display: none;
+  }
+  body.capture-mode .capture-only,
+  body.print-panel-mode .print-target .capture-only {
+    display: block;
   }
 
   /* 상하 분할 기준선을 끄는 동안에는 화면 전체가 세로 리사이즈 커서 */
@@ -42,6 +53,36 @@
   body.is-splitting * {
     cursor: row-resize !important;
     user-select: none !important;
+  }
+}
+
+/*
+ * 좌우 배치 — 넓은 화면(md 이상)이거나 **화면이 가로**일 때.
+ * 가로로 눕힌 휴대폰은 폭이 768px 에 못 미쳐도 위아래로 나누면 두 계보도가
+ * 모두 납작해져 못 쓰므로, 세로/가로(orientation)로 판단해 좌우로 나눈다.
+ * @layer 밖에 두어 Tailwind 유틸리티(flex-col·w-full·border-b)보다 뒤에 오게 한다.
+ */
+@media (min-width: 768px), (orientation: landscape) {
+  .split-area {
+    flex-direction: row;
+  }
+  /* 상하 분할 비율(인라인 height)을 무효화하고 좌우 절반씩 */
+  .split-pane-top {
+    height: auto !important;
+    width: 50%;
+    border-bottom-width: 0;
+    border-right-width: 1px;
+  }
+  /* 상하 기준선은 좌우 배치에서 의미가 없다 */
+  .split-divider {
+    display: none;
+  }
+}
+
+/* 가로로 눕힌 휴대폰처럼 세로가 짧은 화면 — 계보도 최소 높이를 풀어 화면 밖으로 밀리지 않게 */
+@media (max-height: 520px) {
+  .org-tree-pan-area {
+    min-height: 0;
   }
 }
 

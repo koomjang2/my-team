@@ -58,6 +58,13 @@ function loadInitialState() {
   }
 }
 
+/** 인쇄·그림에 찍히는 한 줄짜리 기간 표기 — 화면 선택지(TopBar)와 같은 말로 맞춘다 */
+function formatPeriod(period) {
+  if (!period) return ''
+  const half = period.half === 'first' ? '상반기(1~15일)' : '하반기(16일~말일)'
+  return `${period.year}년 ${period.month}월 ${half}`
+}
+
 function collectSubtreeIds(nodeId, nodes) {
   const ids = [nodeId]
   for (const child of nodes.filter((n) => n.parentId === nodeId)) {
@@ -81,13 +88,22 @@ export default function App() {
     }
   })
 
+  // 오른쪽 패널의 요약줄(목표·달성 여부·직급별 인원) 접기 — 같은 이유로 취향을 기억해 둔다
+  const [summaryOpen, setSummaryOpen] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(UI_KEY) ?? '{}').summaryOpen !== false
+    } catch {
+      return true
+    }
+  })
+
   useEffect(() => {
     try {
-      localStorage.setItem(UI_KEY, JSON.stringify({ menuOpen }))
+      localStorage.setItem(UI_KEY, JSON.stringify({ menuOpen, summaryOpen }))
     } catch {
       /* 저장 실패는 무시 — 접힘 상태를 못 기억할 뿐이다 */
     }
-  }, [menuOpen])
+  }, [menuOpen, summaryOpen])
 
   // 좁은 화면 상하 분할 — 기준선을 끌어 비율을 바꾼다 (기본 절반)
   const [splitPct, setSplitPct] = useState(50)
@@ -273,7 +289,7 @@ export default function App() {
         />
       )}
 
-      <div ref={splitAreaRef} className="flex min-h-0 flex-1 flex-col md:flex-row">
+      <div ref={splitAreaRef} className="split-area flex min-h-0 flex-1 flex-col">
         <OrgTreePanel
           style={{ height: `${splitPct}%` }}
           nodes={nodes}
@@ -287,13 +303,14 @@ export default function App() {
           onSaveTree={handleSaveTree}
           onLoadTree={() => loadInputRef.current?.click()}
           onResetTree={handleResetTree}
+          periodLabel={formatPeriod(period)}
         />
 
-        {/* 상하 분할 기준선 — 누른 채 위아래로 끌면 두 패널 비율이 바뀐다 */}
+        {/* 상하 분할 기준선 — 누른 채 위아래로 끌면 두 패널 비율이 바뀐다 (좌우 배치에서는 숨는다) */}
         <div
           role="separator"
           aria-orientation="horizontal"
-          className="no-print flex h-4 flex-shrink-0 touch-none cursor-row-resize items-center justify-center border-y border-slate-300 bg-slate-100 active:bg-slate-200 md:hidden"
+          className="split-divider no-print flex h-4 flex-shrink-0 touch-none cursor-row-resize items-center justify-center border-y border-slate-300 bg-slate-100 active:bg-slate-200"
           onMouseDown={startSplitDrag}
           onTouchStart={startSplitDrag}
           onDoubleClick={() => setSplitPct(50)}
@@ -313,6 +330,9 @@ export default function App() {
           onSaveTree={handleSaveTree}
           onLoadTree={() => loadInputRef.current?.click()}
           onResetTree={handleResetTree}
+          periodLabel={formatPeriod(period)}
+          summaryOpen={summaryOpen}
+          onToggleSummary={() => setSummaryOpen((open) => !open)}
         />
       </div>
 
