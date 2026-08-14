@@ -95,13 +95,23 @@ export default function App() {
     }
   })
 
+  // 목표 계보도 카드에 회원 ID 를 보일지 — 남에게 화면을 보여줄 때가 있어 **기본은 감춤**이다.
+  // (다른 접힘 취향과 달리 `=== true` 로 본다 — 값이 없으면 꺼진 상태여야 하기 때문)
+  const [showEffectiveIds, setShowEffectiveIds] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(UI_KEY) ?? '{}').showEffectiveIds === true
+    } catch {
+      return false
+    }
+  })
+
   useEffect(() => {
     try {
-      localStorage.setItem(UI_KEY, JSON.stringify({ menuOpen, summaryOpen }))
+      localStorage.setItem(UI_KEY, JSON.stringify({ menuOpen, summaryOpen, showEffectiveIds }))
     } catch {
       /* 저장 실패는 무시 — 접힘 상태를 못 기억할 뿐이다 */
     }
-  }, [menuOpen, summaryOpen])
+  }, [menuOpen, summaryOpen, showEffectiveIds])
 
   // 좁은 화면 상하 분할 — 기준선을 끌어 비율을 바꾼다 (기본 절반)
   const [splitPct, setSplitPct] = useState(50)
@@ -322,6 +332,8 @@ export default function App() {
           periodLabel={formatPeriod(period)}
           summaryOpen={summaryOpen}
           onToggleSummary={() => setSummaryOpen((open) => !open)}
+          showIds={showEffectiveIds}
+          onToggleShowIds={() => setShowEffectiveIds((on) => !on)}
         />
       </div>
     </div>

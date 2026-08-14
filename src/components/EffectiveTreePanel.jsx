@@ -18,7 +18,7 @@ const layout = makeLayout({ cardWidth: CARD_WIDTH, emptyLaneWidth: 114, branchGa
  * 실질 직급(실제로 달성되는 직급)은 카드에 적지 않는다 — 대신 못 채운 자리에는
  * 무엇이 몇 명 모자란지 아래에 붉게 적히고, 머리줄 요약에 실질 직급이 나온다.
  */
-function EffectiveCard({ node, gap, onSelect, isSelected }) {
+function EffectiveCard({ node, gap, onSelect, isSelected, showIds }) {
   const nonRank = isNonRank(node.rank)
   const colorClass = RANK_COLORS[node.rank] ?? 'border-gray-300 bg-gray-100 text-gray-500'
   const displayRank = rankDisplay(node.rank)
@@ -35,7 +35,8 @@ function EffectiveCard({ node, gap, onSelect, isSelected }) {
       <div className="text-[11px] font-bold leading-tight">{displayRank}</div>
       {/* 이름·ID 는 왼쪽 카드와 같은 크기·굵기로 맞춘다 */}
       <div className="mt-0.5 truncate text-xs font-semibold text-gray-800">{node.name || '이름 없음'}</div>
-      <CopyableId value={node.memberId} size="name" />
+      {/* 회원 ID 는 머리줄의 'ID 보이기' 를 켰을 때만 — 기본은 감춤 */}
+      {showIds && <CopyableId value={node.memberId} size="name" />}
 
       {/* 회원PV 도 왼쪽과 같은 조건(명목 직급 기준)·같은 모양으로 — 한쪽에만 보이면 헷갈린다 */}
       {hasMemberPv(node.nominalRank) && (node.memberPvMan ?? 0) > 0 && (
@@ -52,7 +53,7 @@ function EffectiveCard({ node, gap, onSelect, isSelected }) {
   )
 }
 
-function EffectiveNode({ nodeId, nodes, gapMap, selectedId, onSelect }) {
+function EffectiveNode({ nodeId, nodes, gapMap, selectedId, onSelect, showIds }) {
   const node = nodes.find((n) => n.id === nodeId)
   if (!node) return null
   const row = layout.childRow(nodeId, nodes)
@@ -68,6 +69,7 @@ function EffectiveNode({ nodeId, nodes, gapMap, selectedId, onSelect }) {
           gap={gapMap.get(node.id)}
           isSelected={selectedId === node.id}
           onSelect={() => onSelect(node.id)}
+          showIds={showIds}
         />
       )}
       {row.hasChildren && (
@@ -76,13 +78,13 @@ function EffectiveNode({ nodeId, nodes, gapMap, selectedId, onSelect }) {
           <div className="flex" style={{ width: row.childRowWidth }}>
             <div className="flex flex-col items-center" style={{ width: row.leftLaneWidth }}>
               {row.hasLeft && (
-                <EffectiveNode nodeId={row.left.id} nodes={nodes} gapMap={gapMap} selectedId={selectedId} onSelect={onSelect} />
+                <EffectiveNode nodeId={row.left.id} nodes={nodes} gapMap={gapMap} selectedId={selectedId} onSelect={onSelect} showIds={showIds} />
               )}
             </div>
             <div style={{ width: layout.branchGap }} />
             <div className="flex flex-col items-center" style={{ width: row.rightLaneWidth }}>
               {row.hasRight && (
-                <EffectiveNode nodeId={row.right.id} nodes={nodes} gapMap={gapMap} selectedId={selectedId} onSelect={onSelect} />
+                <EffectiveNode nodeId={row.right.id} nodes={nodes} gapMap={gapMap} selectedId={selectedId} onSelect={onSelect} showIds={showIds} />
               )}
             </div>
           </div>
@@ -96,6 +98,7 @@ export default function EffectiveTreePanel({
   nodes, effRankMap, gapMap, selectedId, onSelect, rootNode, style,
   onSaveTree, onLoadTree, onResetTree,
   periodLabel, summaryOpen, onToggleSummary,
+  showIds, onToggleShowIds,
 }) {
   const { containerRef, layerRef, onMouseDown, resetView } = usePanZoom()
   const panelRef = useRef(null)
@@ -141,6 +144,8 @@ export default function EffectiveTreePanel({
         onReset={onResetTree}
         summaryOpen={summaryOpen}
         onToggleSummary={onToggleSummary}
+        showIds={showIds}
+        onToggleShowIds={onToggleShowIds}
       />
 
       {summaryOpen && rootNode && rootIsNone && (
@@ -210,6 +215,7 @@ export default function EffectiveTreePanel({
                 gapMap={gapMap}
                 selectedId={selectedId}
                 onSelect={onSelect}
+                showIds={showIds}
               />
             ))}
           </div>

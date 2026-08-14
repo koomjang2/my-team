@@ -13,6 +13,7 @@ const TOGGLE_BTN = 'glass-btn h-6 shrink-0 gap-0.5 px-1.5 text-[10px] leading-no
 export default function TreePanelHeader({
   title, onSave, onLoad, onPrint, onImage, onFocusRoot, onReset,
   summaryOpen, onToggleSummary,
+  showIds, onToggleShowIds,
 }) {
   return (
     <div className="flex flex-nowrap items-center gap-1 border-b px-1.5 py-1.5">
@@ -24,6 +25,21 @@ export default function TreePanelHeader({
         <button onClick={onImage} className={BTN} title="이 패널을 그림으로 저장">🖼 그림</button>
         <button onClick={onFocusRoot} className={BTN} title="'나' 를 화면 맨 위로">🎯 나</button>
         <button onClick={onReset} className={BTN} title="계보도 초기화">♻ 초기화</button>
+        {/* ID 를 감추면 화면을 남에게 보여줄 때 회원번호가 드러나지 않는다 (기본: 감춤) */}
+        {onToggleShowIds && (
+          <label
+            className={`${BTN} cursor-pointer select-none px-1.5`}
+            title={showIds ? '회원 ID 감추기' : '회원 ID 보이기'}
+          >
+            <input
+              type="checkbox"
+              checked={showIds}
+              onChange={onToggleShowIds}
+              className="h-3 w-3 accent-sky-600"
+            />
+            ID 보이기
+          </label>
+        )}
       </div>
       {/* 요약줄이 있는 패널에만 붙는다 — 좁은 화면에서 계보도에 자리를 내주기 위한 것 */}
       {onToggleSummary && (
