@@ -36,6 +36,30 @@ export const NOMINAL_RANKS = ['NONE', 'SSM', 'SM', 'DM', 'SRM', 'STM', 'RM', 'CM
 /** 실제 직급 (없음·소비자 제외) — 낮은 직급부터 */
 export const BUSINESS_RANKS = ['SSM', 'SM', 'DM', 'SRM', 'STM', 'RM', 'CM', 'IM']
 
+/** 목표 직급 단축키 — 화면 버튼에 적는 글자. '없음' 에는 단축키가 없다. */
+export const RANK_HOTKEY = {
+  CSM: '`', SSM: '1', SM: '2', DM: '3', SRM: '4', STM: '5', RM: '6', CM: '7', IM: '8',
+}
+
+/**
+ * KeyboardEvent.code → 목표 직급.
+ * `key` 가 아니라 `code` 로 보는 이유: 한글 입력 상태에서도 자판의 물리 위치는
+ * 그대로라 `q` 가 `ㅂ` 로 바뀌어도 단축키가 살아 있다.
+ */
+export const HOTKEY_CODE_TO_RANK = {
+  Backquote: 'CSM',
+  Digit1: 'SSM', Digit2: 'SM', Digit3: 'DM', Digit4: 'SRM',
+  Digit5: 'STM', Digit6: 'RM', Digit7: 'CM', Digit8: 'IM',
+  Numpad1: 'SSM', Numpad2: 'SM', Numpad3: 'DM', Numpad4: 'SRM',
+  Numpad5: 'STM', Numpad6: 'RM', Numpad7: 'CM', Numpad8: 'IM',
+}
+
+/** `code` 를 주지 않는 자판·입력기를 위한 뒷받침 — 찍힌 글자로 한 번 더 본다 */
+export const HOTKEY_KEY_TO_RANK = {
+  '`': 'CSM', '~': 'CSM',
+  1: 'SSM', 2: 'SM', 3: 'DM', 4: 'SRM', 5: 'STM', 6: 'RM', 7: 'CM', 8: 'IM',
+}
+
 export const RANK_LABEL = {
   NONE: '없음',
   CSM: '소비자',

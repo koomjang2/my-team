@@ -1,14 +1,16 @@
 import { useRef, useState } from 'react'
-import { Plus } from 'lucide-react'
+import { ChevronDown, Plus } from 'lucide-react'
 import { RANK_COLORS, RANK_NONE, RANK_RULES, hasMemberPv, isNonRank, rankDisplay } from '../engine/ranks.js'
 import { makeLayout } from './treeLayout.js'
 import TreeConnectors from './TreeConnectors.jsx'
 import NodeEditorPopover from './NodeEditorPopover.jsx'
+import RankQuickPicker from './RankQuickPicker.jsx'
 import CopyableId from './CopyableId.jsx'
 import TreePanelHeader from './TreePanelHeader.jsx'
 import CaptureCaption from './CaptureCaption.jsx'
 import { usePanZoom } from './usePanZoom.js'
 import { usePanelCapture } from './usePanelCapture.js'
+import { useEditorHotkeys } from './keyboard.js'
 
 const CARD_WIDTH = 104
 const layout = makeLayout({ cardWidth: CARD_WIDTH, emptyLaneWidth: 130, branchGap: 48 })
@@ -17,8 +19,9 @@ const layout = makeLayout({ cardWidth: CARD_WIDTH, emptyLaneWidth: 130, branchGa
 const BADGE = 'shrink-0 rounded px-1 text-[10px] font-medium leading-tight'
 
 function NodeCard({
-  node, effRank, gap, isSelected, isEditing,
-  onOpenEditor, onAddLeft, onAddRight, onRemove, canAddLeft, canAddRight,
+  node, effRank, gap, isSelected, isEditing, isPickingRank,
+  onOpenEditor, onOpenRankPicker, onPickRank, onClosePopups,
+  onAddLeft, onAddRight, onRemove, canAddLeft, canAddRight,
 }) {
   // 왼쪽 '나의 계보도' 카드 색은 **명목 직급** 을 따른다 (오른쪽 '목표 계보도' 는 목표 직급)
   const colorClass = RANK_COLORS[node.nominalRank ?? RANK_NONE] ?? 'bg-gray-100 text-gray-700 border-gray-300'
@@ -28,6 +31,16 @@ function NodeCard({
   const isLegRank = RANK_RULES[node.rank]?.type === 'leg'
   // 달성할 직급에 실제로 도달하는지 — 오른쪽 실질 계보도와 같은 판정
   const achieved = nonRank || gap?.achieved
+
+  // 직급 고르기 목록만 열려 있을 때도 단축키는 편집창과 똑같이 듣는다.
+  // (편집창이 열려 있으면 그쪽이 이미 듣고 있으므로 여기서는 끈다 — 두 번 처리 방지)
+  useEditorHotkeys({
+    enabled: isPickingRank && !isEditing,
+    onClose: onClosePopups,
+    onPickRank,
+    onAddLeft: () => canAddLeft && onAddLeft(),
+    onAddRight: () => canAddRight && onAddRight(),
+  })
 
   return (
     <div className="relative z-10 flex flex-col items-center hover:z-[500]">
@@ -52,10 +65,25 @@ function NodeCard({
           </span>
         </div>
 
-        <div className="flex items-center justify-center gap-1">
-          <span className={`${BADGE} bg-sky-600/15 text-sky-800`}>목표</span>
-          <span className="text-xs font-bold">{rankDisplay(node.rank)}</span>
+        {/*
+          목표 뱃지 + 목표 직급을 하나의 둥근 상자로 묶어 '누를 수 있는 곳' 임을 보인다.
+          여기를 누르면 큰 편집창이 아니라 직급 목록만 바로 열린다 (카드의 다른 곳은 편집창).
+        */}
+        <div className="flex justify-center">
+          <button
+            className="flex items-center gap-1 rounded-full border border-current/20 bg-white/70 px-1.5 py-0.5 transition-colors hover:bg-white"
+            onClick={(e) => { e.stopPropagation(); onOpenRankPicker() }}
+            title="목표 직급 선택 (` 1~8)"
+          >
+            <span className={`${BADGE} bg-sky-600/15 text-sky-800`}>목표</span>
+            <span className="text-xs font-bold">{rankDisplay(node.rank)}</span>
+            <ChevronDown size={10} className="shrink-0 opacity-60" />
+          </button>
         </div>
+
+        {isPickingRank && (
+          <RankQuickPicker value={node.rank} onPick={onPickRank} />
+        )}
 
         <div className="mt-0.5 truncate text-xs font-semibold">{node.name || '이름 없음'}</div>
         <CopyableId value={node.memberId} size="name" />
@@ -124,12 +152,16 @@ function NodeCard({
   )
 }
 
-function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, handlers }) {
+function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, pickingRankId, selectedId, handlers }) {
   const node = nodes.find((n) => n.id === nodeId)
   if (!node) return null
 
   const row = layout.childRow(nodeId, nodes)
   const isRoot = !node.parentId
+  const canAddLeft = !row.hasLeft
+  const canAddRight = !row.hasRight
+  const addLeft = () => handlers.onAdd(node.id, 'left')
+  const addRight = () => handlers.onAdd(node.id, 'right')
 
   return (
     <div className="flex flex-col items-center" style={{ minWidth: row.hasChildren ? row.childRowWidth : CARD_WIDTH }}>
@@ -139,11 +171,15 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, ha
         gap={gapMap.get(node.id)}
         isSelected={selectedId === node.id}
         isEditing={editingId === node.id}
-        canAddLeft={!row.hasLeft}
-        canAddRight={!row.hasRight}
+        isPickingRank={pickingRankId === node.id}
+        canAddLeft={canAddLeft}
+        canAddRight={canAddRight}
         onOpenEditor={() => handlers.onOpenEditor(node.id)}
-        onAddLeft={() => handlers.onAdd(node.id, 'left')}
-        onAddRight={() => handlers.onAdd(node.id, 'right')}
+        onOpenRankPicker={() => handlers.onOpenRankPicker(node.id)}
+        onPickRank={(r) => handlers.onPickRank(node.id, r)}
+        onClosePopups={handlers.onClosePopups}
+        onAddLeft={addLeft}
+        onAddRight={addRight}
         onRemove={isRoot ? undefined : () => handlers.onRemove(node.id)}
       />
 
@@ -151,7 +187,11 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, ha
         <NodeEditorPopover
           node={node}
           onUpdate={(patch) => handlers.onUpdate(node.id, patch)}
-          onClose={() => handlers.onOpenEditor(null)}
+          onClose={handlers.onClosePopups}
+          onAddLeft={addLeft}
+          onAddRight={addRight}
+          canAddLeft={canAddLeft}
+          canAddRight={canAddRight}
         />
       )}
 
@@ -165,7 +205,8 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, ha
                   <div className="mb-0.5 text-[10px] font-bold text-blue-500">좌</div>
                   <TreeNode
                     nodeId={row.left.id} nodes={nodes} effRankMap={effRankMap} gapMap={gapMap}
-                    editingId={editingId} selectedId={selectedId} handlers={handlers}
+                    editingId={editingId} pickingRankId={pickingRankId}
+                    selectedId={selectedId} handlers={handlers}
                   />
                 </>
               )}
@@ -177,7 +218,8 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, selectedId, ha
                   <div className="mb-0.5 text-[10px] font-bold text-orange-500">우</div>
                   <TreeNode
                     nodeId={row.right.id} nodes={nodes} effRankMap={effRankMap} gapMap={gapMap}
-                    editingId={editingId} selectedId={selectedId} handlers={handlers}
+                    editingId={editingId} pickingRankId={pickingRankId}
+                    selectedId={selectedId} handlers={handlers}
                   />
                 </>
               )}
@@ -196,7 +238,9 @@ export default function OrgTreePanel({
   periodLabel,
   style,
 }) {
+  // 편집창(큰 창)과 직급 고르기 목록(작은 목록)은 한 번에 하나만 뜬다
   const [editingId, setEditingId] = useState(null)
+  const [pickingRankId, setPickingRankId] = useState(null)
   const { containerRef, layerRef, onMouseDown, resetView } = usePanZoom()
   const panelRef = useRef(null)
   const innerRef = useRef(null)
@@ -209,7 +253,22 @@ export default function OrgTreePanel({
     onAdd,
     onRemove,
     onUpdate,
-    onOpenEditor: (id) => setEditingId((cur) => (cur === id ? null : id)),
+    onOpenEditor: (id) => {
+      setPickingRankId(null)
+      setEditingId((cur) => (cur === id ? null : id))
+    },
+    onOpenRankPicker: (id) => {
+      setEditingId(null)
+      setPickingRankId((cur) => (cur === id ? null : id))
+    },
+    onPickRank: (id, rank) => {
+      onUpdate(id, { rank })
+      setPickingRankId(null) // 고르면 목록은 할 일을 다 했다
+    },
+    onClosePopups: () => {
+      setEditingId(null)
+      setPickingRankId(null)
+    },
   }
 
   return (
@@ -231,6 +290,12 @@ export default function OrgTreePanel({
       <div
         ref={containerRef}
         onMouseDown={onMouseDown}
+        // 빈 바탕을 누르면 열려 있던 편집창·직급 목록을 닫는다.
+        // 편집창과 목록은 자기 클릭을 멈춰 세우므로(stopPropagation) 여기까지 오지 않는다.
+        onClick={(e) => {
+          if (e.target.closest?.('.tree-node-card')) return
+          handlers.onClosePopups()
+        }}
         className="tree-print-area org-tree-pan-area min-h-0 flex-1 overflow-hidden bg-slate-50/30 p-4 md:min-h-[340px]"
       >
         <div ref={layerRef} className="will-change-transform" style={{ transform: 'translate(0px, 0px) scale(1)', transformOrigin: '0 0' }}>
@@ -244,6 +309,7 @@ export default function OrgTreePanel({
                 effRankMap={effRankMap}
                 gapMap={gapMap}
                 editingId={editingId}
+                pickingRankId={pickingRankId}
                 selectedId={selectedId}
                 handlers={handlers}
               />

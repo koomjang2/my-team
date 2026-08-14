@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import {
-  ALL_RANKS, NOMINAL_RANKS, RANK_COLORS_SOFT, RANK_COLORS_STRONG, RANK_LABEL, RANK_SHORT_LABEL,
-  RANK_NONE, hasMemberPv,
+  ALL_RANKS, NOMINAL_RANKS, RANK_COLORS_SOFT, RANK_COLORS_STRONG, RANK_HOTKEY, RANK_LABEL,
+  RANK_SHORT_LABEL, RANK_NONE, hasMemberPv,
 } from '../engine/ranks.js'
 import NumberField from './NumberField.jsx'
+import { useEditorHotkeys } from './keyboard.js'
 
 /** 고르기 전에는 옅은 직급색, 고르면 같은 계열의 선명한 색 */
 function rankButtonClass(rank, selected) {
@@ -24,8 +25,12 @@ const RANK_BTN = 'rounded border px-1 py-1 text-[10px] font-bold leading-tight t
  *
  * 위에서부터 이름 → 회원 ID → 명목 직급 → 달성할 직급 → PV → 메모 → 닫기 순이다.
  * 손이 먼저 닿아야 하는 것(이름·ID)을 맨 위에 둔다.
+ *
+ * 단축키는 커서가 글자 칸에 없을 때만 듣는다 (esc 만 예외) — `keyboard.js` 참고.
  */
-export default function NodeEditorPopover({ node, onUpdate, onClose }) {
+export default function NodeEditorPopover({
+  node, onUpdate, onClose, onAddLeft, onAddRight, canAddLeft, canAddRight,
+}) {
   const isConsumer = node.rank === 'CSM'
   const isNone = node.rank === RANK_NONE
   const nominalRank = node.nominalRank ?? RANK_NONE
@@ -33,6 +38,13 @@ export default function NodeEditorPopover({ node, onUpdate, onClose }) {
   // 명목 직급은 한 번 정하면 다시 볼 일이 드물다 — 정해져 있으면 접어 두고,
   // 접힌 버튼을 누르면 다시 펼쳐서 고칠 수 있게 한다.
   const [nominalOpen, setNominalOpen] = useState(nominalRank === RANK_NONE)
+
+  useEditorHotkeys({
+    onClose,
+    onPickRank: (r) => onUpdate({ rank: r }),
+    onAddLeft: () => canAddLeft && onAddLeft?.(),
+    onAddRight: () => canAddRight && onAddRight?.(),
+  })
 
   function pickNominal(r) {
     onUpdate({ nominalRank: r })
@@ -101,8 +113,9 @@ export default function NodeEditorPopover({ node, onUpdate, onClose }) {
         </button>
       )}
 
-      <div className="mb-1.5 border-t pt-1.5">
+      <div className="mb-1.5 flex items-baseline justify-between border-t pt-1.5">
         <span className="font-semibold text-gray-600">목표 직급 선택</span>
+        <span className="text-[9px] font-normal text-gray-400">Q 좌 · W 우 추가</span>
       </div>
 
       <div className="mb-2 grid grid-cols-3 gap-1">
@@ -111,9 +124,16 @@ export default function NodeEditorPopover({ node, onUpdate, onClose }) {
             key={r}
             className={`${RANK_BTN} ${rankButtonClass(r, node.rank === r)}`}
             onClick={() => onUpdate({ rank: r })}
-            title={RANK_LABEL[r]}
+            title={RANK_HOTKEY[r] ? `${RANK_LABEL[r]} · 단축키 ${RANK_HOTKEY[r]}` : RANK_LABEL[r]}
           >
-            <div>{r === RANK_NONE ? '없음' : r}</div>
+            <div className="flex items-center justify-center gap-0.5">
+              <span>{r === RANK_NONE ? '없음' : r}</span>
+              {RANK_HOTKEY[r] && (
+                <span className="rounded-sm bg-black/10 px-0.5 text-[8px] font-bold leading-tight opacity-70">
+                  {RANK_HOTKEY[r]}
+                </span>
+              )}
+            </div>
             <div className="font-normal opacity-80">{RANK_SHORT_LABEL[r]}</div>
           </button>
         ))}
@@ -164,7 +184,7 @@ export default function NodeEditorPopover({ node, onUpdate, onClose }) {
         className="mt-1 w-full rounded-md border border-gray-300 bg-gray-100 py-1.5 text-[11px] font-bold text-gray-700 transition-colors hover:bg-gray-200"
         onClick={onClose}
       >
-        닫기
+        닫기(esc)
       </button>
     </div>
   )

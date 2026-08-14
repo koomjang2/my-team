@@ -47,6 +47,34 @@
 - 명목 직급: `없음` + SSM~IM = **9개** (소비자 CSM 없음)
 - 달성할 직급: `없음` + `CSM` + SSM~IM = **10개**
 
+### 카드에서 목표 직급을 고르는 두 가지 길
+왼쪽 카드의 `[목표] ○○` 는 둥근 상자 + 아래 화살표가 붙은 **버튼**이다.
+- **목표 상자를 누르면** → 직급 목록만 바로 뜬다 (`RankQuickPicker.jsx`). 큰 편집창은 안 열린다.
+- **카드의 다른 곳을 누르면** → 예전처럼 편집창(`NodeEditorPopover.jsx`)이 열린다.
+
+둘은 한 번에 하나만 뜬다 (`OrgTreePanel` 의 `editingId` / `pickingRankId`).
+
+### 단축키 (`keyboard.js`)
+회원 하나가 열려 있는 동안(편집창 **또는** 직급 목록)만 듣는다. 아무것도 안 열렸으면 무시한다.
+
+| 키 | 하는 일 |
+|---|---|
+| `esc` | 닫기 — 글자 칸에 커서가 있어도 듣는다 |
+| `` ` `` `1`~`8` | 목표 직급 (CSM · SSM~IM). `없음` 에는 단축키가 없다 |
+| `Q` / `W` | 좌 · 우 하위 추가 (자리가 비어 있을 때만) |
+
+- **esc 를 뺀 나머지는 커서가 글자 칸(이름·ID·PV·메모)에 있으면 듣지 않는다.**
+  이름에 `2` 를 칠 수 있어야 하기 때문이다.
+- 키는 `e.code` 로 먼저 보고 안 되면 `e.key` 로 본다 — 한글 입력 상태에서 `q` 가
+  `ㅂ` 로 바뀌어도 자판의 물리 위치는 그대로라 단축키가 살아 있다.
+- 단축키 글자는 목록·버튼에 그대로 적혀 있다 (`RANK_HOTKEY`).
+
+### 글자 칸 밖을 누르면 커서가 빠진다
+`usePanZoom.js` 의 `blurOutside()`. 팬을 시작할 때 mousedown 의 기본 동작을 막는데
+(`preventDefault`), 브라우저가 원래 그때 해 주던 blur 까지 함께 막혀 커서가 칸에
+남아 있었다. 그래서 누를 때마다 직접 빼 준다 — 누른 곳이 그 칸 자신이면 그대로 둔다.
+**팬의 `preventDefault` 를 손대면 이 동작이 같이 깨진다.**
+
 ## 계보도의 3가지 분류
 | 분류 | 표현 방식 |
 |------|-----------|
@@ -122,7 +150,9 @@ src/engine/rankEngine.test.js 문서 인원 수치 대조 검증
 src/components/OrgTreePanel.jsx      좌: 나의 계보도 (카드 터치 → 직급 선택)
 src/components/EffectiveTreePanel.jsx 우: 목표 계보도 (좌측에서 파생, 자동 반영)
 src/components/NodeEditorPopover.jsx 이름/ID → 명목 직급(접힘) → 목표 직급 → PV → 메모
-src/components/TopBar.jsx            맨 위 줄 — 대상 반기만 고른다
+src/components/RankQuickPicker.jsx   카드의 '목표' 상자를 누르면 뜨는 직급 목록
+src/components/keyboard.js           단축키(esc · ` 1~8 · Q/W) + 글자 칸 판별
+src/components/TopBar.jsx            맨 위 줄 — 기간(년·월·반기)을 한 줄에
 src/components/NumberField.jsx       PV 입력칸 (0 이면 포커스 때 비운다)
 src/components/CaptureCaption.jsx    인쇄·그림에만 찍히는 대상 기간 머리글
 src/components/TreePanelHeader.jsx   두 패널 공용 머리줄 (제목 + 메뉴 + 요약 접기)

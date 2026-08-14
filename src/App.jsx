@@ -250,11 +250,16 @@ export default function App() {
         onChange={handleLoadTreeFile}
       />
 
-      <header className="no-print flex flex-shrink-0 items-center gap-2 border-b bg-white px-3 py-1.5">
-        <h1 className="min-w-0 flex-1 truncate text-[13px] font-bold leading-tight text-gray-800">
-          My Team{' '}
-          <span className="font-normal text-gray-500">
-            - 나와 함께 하는 회원들을 입력하고 직급을 계획해보세요.
+      <header className="no-print flex flex-shrink-0 items-center gap-2 border-b bg-white px-3 py-2 shadow-sm">
+        <h1 className="flex min-w-0 flex-1 items-center gap-2 leading-tight">
+          <span className="shrink-0 text-base font-bold md:text-lg" style={{ color: 'rgb(0, 181, 239)' }}>
+            My Team
+          </span>
+          <span className="shrink-0 rounded border border-sky-300 bg-sky-50 px-1.5 py-0.5 text-[10px] font-semibold text-sky-600 md:text-xs">
+            BETA
+          </span>
+          <span className="min-w-0 truncate text-[13px] font-normal text-gray-500">
+            - 함께 성공할 팀을 입력하고 직급을 계획해 보세요.
           </span>
         </h1>
         <button

@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { isTypingTarget } from './keyboard.js'
 
 const ZOOM_MIN = 0.3
 const ZOOM_MAX = 3
@@ -72,6 +73,19 @@ export function usePanZoom() {
     return !!target?.closest?.('.tree-node-card, button, a, label')
   }
 
+  /**
+   * 이름·ID·PV·메모를 치던 중 그 칸 밖을 누르면 커서를 뺀다.
+   * 팬을 시작할 때 mousedown 의 기본 동작을 막는데(preventDefault), 브라우저가
+   * 원래 그때 해 주던 blur 까지 함께 막혀 커서가 칸에 남아 있었다.
+   * 누른 곳이 그 칸 자신이면 그대로 둔다 — 글 고치는 중이다.
+   */
+  function blurOutside(target) {
+    const active = document.activeElement
+    if (!active || !isTypingTarget(active)) return
+    if (active === target || active.contains?.(target)) return
+    active.blur()
+  }
+
   function panStart(clientX, clientY) {
     const s = stateRef.current
     s.active = true
@@ -108,6 +122,7 @@ export function usePanZoom() {
     if (e.button !== 0) return
     // 누를 때마다 먼저 푼다 — 끌고 난 뒤 버튼을 누르면 그 첫 탭이 삼켜지기 때문
     stateRef.current.suppressClick = false
+    blurOutside(e.target)
     if (!isPanStart(e.target)) return
     panStart(e.clientX, e.clientY)
     e.preventDefault()
@@ -197,6 +212,7 @@ export function usePanZoom() {
       if (e.touches.length === 1 && !s.pinchActive) {
         const t = e.touches[0]
         s.suppressClick = false
+        blurOutside(t.target)
         if (!isPanStart(t.target)) return
         panStart(t.clientX, t.clientY)
         // 누르면 반응해야 하는 자리(카드·버튼)에서는 touchstart 를 막지 않는다 —
