@@ -95,8 +95,18 @@ export default function App() {
     }
   })
 
-  // 목표 계보도 카드에 회원 ID 를 보일지 — 남에게 화면을 보여줄 때가 있어 **기본은 감춤**이다.
-  // (다른 접힘 취향과 달리 `=== true` 로 본다 — 값이 없으면 꺼진 상태여야 하기 때문)
+  // 카드에 회원 ID 를 보일지 — 패널마다 따로 기억한다.
+  // 왼쪽 '나의 계보도' 는 내가 짜는 화면이라 **기본 켜짐**,
+  // 오른쪽 '목표 계보도' 는 남에게 보여줄 때가 있어 **기본 꺼짐**이다.
+  // 그래서 저장된 값이 없을 때 읽는 방향이 서로 반대다 (`!== false` vs `=== true`).
+  const [showOrgIds, setShowOrgIds] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(UI_KEY) ?? '{}').showOrgIds !== false
+    } catch {
+      return true
+    }
+  })
+
   const [showEffectiveIds, setShowEffectiveIds] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem(UI_KEY) ?? '{}').showEffectiveIds === true
@@ -107,11 +117,11 @@ export default function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem(UI_KEY, JSON.stringify({ menuOpen, summaryOpen, showEffectiveIds }))
+      localStorage.setItem(UI_KEY, JSON.stringify({ menuOpen, summaryOpen, showOrgIds, showEffectiveIds }))
     } catch {
       /* 저장 실패는 무시 — 접힘 상태를 못 기억할 뿐이다 */
     }
-  }, [menuOpen, summaryOpen, showEffectiveIds])
+  }, [menuOpen, summaryOpen, showOrgIds, showEffectiveIds])
 
   // 좁은 화면 상하 분할 — 기준선을 끌어 비율을 바꾼다 (기본 절반)
   const [splitPct, setSplitPct] = useState(50)
@@ -198,7 +208,14 @@ export default function App() {
 
   function handleSaveTree() {
     try {
-      const payload = { format: FILE_FORMAT, savedAt: new Date().toISOString(), ...state }
+      // `ui` 는 계보도가 아니라 보기 취향이다. PV 최적화 시뮬레이터가 이 파일을
+      // 불러올 때 ID 를 보일지 판단하는 데 쓰므로 파일에 함께 담는다.
+      const payload = {
+        format: FILE_FORMAT,
+        savedAt: new Date().toISOString(),
+        ...state,
+        ui: { showOrgIds, showEffectiveIds },
+      }
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
@@ -304,6 +321,8 @@ export default function App() {
           onLoadTree={() => loadInputRef.current?.click()}
           onResetTree={handleResetTree}
           periodLabel={formatPeriod(period)}
+          showIds={showOrgIds}
+          onToggleShowIds={() => setShowOrgIds((on) => !on)}
         />
 
         {/* 상하 분할 기준선 — 누른 채 위아래로 끌면 두 패널 비율이 바뀐다 (좌우 배치에서는 숨는다) */}

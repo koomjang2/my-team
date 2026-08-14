@@ -19,7 +19,7 @@ const layout = makeLayout({ cardWidth: CARD_WIDTH, emptyLaneWidth: 130, branchGa
 const BADGE = 'shrink-0 rounded px-1 text-[10px] font-medium leading-tight'
 
 function NodeCard({
-  node, effRank, gap, isSelected, isEditing, isPickingRank,
+  node, effRank, gap, isSelected, isEditing, isPickingRank, showIds,
   onOpenEditor, onOpenRankPicker, onPickRank, onClosePopups,
   onAddLeft, onAddRight, onRemove, canAddLeft, canAddRight,
 }) {
@@ -86,7 +86,8 @@ function NodeCard({
         )}
 
         <div className="mt-0.5 truncate text-xs font-semibold">{node.name || '이름 없음'}</div>
-        <CopyableId value={node.memberId} size="name" />
+        {/* 회원 ID 는 머리줄의 'ID 보이기' 로 끈다 — 이쪽은 기본이 켜짐 */}
+        {showIds && <CopyableId value={node.memberId} size="name" />}
 
         {/* 명목 직급이 SRM 이상이면 숨긴다 — 목표 직급과 무관 */}
         {hasMemberPv(node.nominalRank) && (node.memberPvMan ?? 0) > 0 && (
@@ -152,7 +153,7 @@ function NodeCard({
   )
 }
 
-function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, pickingRankId, selectedId, handlers }) {
+function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, pickingRankId, selectedId, showIds, handlers }) {
   const node = nodes.find((n) => n.id === nodeId)
   if (!node) return null
 
@@ -172,6 +173,7 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, pickingRankId,
         isSelected={selectedId === node.id}
         isEditing={editingId === node.id}
         isPickingRank={pickingRankId === node.id}
+        showIds={showIds}
         canAddLeft={canAddLeft}
         canAddRight={canAddRight}
         onOpenEditor={() => handlers.onOpenEditor(node.id)}
@@ -206,7 +208,7 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, pickingRankId,
                   <TreeNode
                     nodeId={row.left.id} nodes={nodes} effRankMap={effRankMap} gapMap={gapMap}
                     editingId={editingId} pickingRankId={pickingRankId}
-                    selectedId={selectedId} handlers={handlers}
+                    selectedId={selectedId} showIds={showIds} handlers={handlers}
                   />
                 </>
               )}
@@ -219,7 +221,7 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, pickingRankId,
                   <TreeNode
                     nodeId={row.right.id} nodes={nodes} effRankMap={effRankMap} gapMap={gapMap}
                     editingId={editingId} pickingRankId={pickingRankId}
-                    selectedId={selectedId} handlers={handlers}
+                    selectedId={selectedId} showIds={showIds} handlers={handlers}
                   />
                 </>
               )}
@@ -236,6 +238,7 @@ export default function OrgTreePanel({
   onAdd, onRemove, onUpdate,
   onSaveTree, onLoadTree, onResetTree,
   periodLabel,
+  showIds, onToggleShowIds,
   style,
 }) {
   // 편집창(큰 창)과 직급 고르기 목록(작은 목록)은 한 번에 하나만 뜬다
@@ -285,6 +288,8 @@ export default function OrgTreePanel({
         onImage={saveImage}
         onFocusRoot={resetView}
         onReset={onResetTree}
+        showIds={showIds}
+        onToggleShowIds={onToggleShowIds}
       />
 
       <div
@@ -311,6 +316,7 @@ export default function OrgTreePanel({
                 editingId={editingId}
                 pickingRankId={pickingRankId}
                 selectedId={selectedId}
+                showIds={showIds}
                 handlers={handlers}
               />
             ))}
