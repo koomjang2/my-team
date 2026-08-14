@@ -96,7 +96,7 @@ function EffectiveNode({ nodeId, nodes, gapMap, selectedId, onSelect, showIds })
 
 export default function EffectiveTreePanel({
   nodes, effRankMap, gapMap, selectedId, onSelect, rootNode, style,
-  onSaveTree, onLoadTree, onResetTree,
+  onSaveTree, onLoadTree,
   periodLabel, summaryOpen, onToggleSummary,
   showIds, onToggleShowIds,
 }) {
@@ -141,7 +141,6 @@ export default function EffectiveTreePanel({
         onPrint={print}
         onImage={saveImage}
         onFocusRoot={resetView}
-        onReset={onResetTree}
         summaryOpen={summaryOpen}
         onToggleSummary={onToggleSummary}
         showIds={showIds}

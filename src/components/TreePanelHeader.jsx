@@ -24,7 +24,8 @@ export default function TreePanelHeader({
         <button onClick={onPrint} className={BTN} title="이 패널만 인쇄">🖨 인쇄</button>
         <button onClick={onImage} className={BTN} title="이 패널을 그림으로 저장">🖼 그림</button>
         <button onClick={onFocusRoot} className={BTN} title="'나' 를 화면 맨 위로">🎯 나</button>
-        <button onClick={onReset} className={BTN} title="계보도 초기화">♻ 초기화</button>
+        {/* 초기화는 계보도를 짜는 '나의 계보도' 에만 둔다 — 목표 계보도는 파생 화면이라 넘기지 않는다 */}
+        {onReset && <button onClick={onReset} className={BTN} title="계보도 초기화">♻ 초기화</button>}
         {/* ID 를 감추면 화면을 남에게 보여줄 때 회원번호가 드러나지 않는다 (기본: 감춤) */}
         {onToggleShowIds && (
           <label

@@ -347,7 +347,6 @@ export default function App() {
           rootNode={me}
           onSaveTree={handleSaveTree}
           onLoadTree={() => loadInputRef.current?.click()}
-          onResetTree={handleResetTree}
           periodLabel={formatPeriod(period)}
           summaryOpen={summaryOpen}
           onToggleSummary={() => setSummaryOpen((open) => !open)}
