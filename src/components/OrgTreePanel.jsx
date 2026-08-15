@@ -210,6 +210,7 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, pickingRankId,
           onClose={handlers.onClosePopups}
           onAddLeft={addLeft}
           onAddRight={addRight}
+          onImportSubtree={() => handlers.onImportSubtree(node.id)}
         />
       )}
 
@@ -252,7 +253,7 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, pickingRankId,
 export default function OrgTreePanel({
   nodes, effRankMap, gapMap, selectedId,
   onAdd, onRemove, onUpdate,
-  onSaveTree, onLoadTree, onResetTree,
+  onSaveTree, onLoadTree, onResetTree, onImportSubtree,
   onUndo, canUndo, onEndEdit,
   periodLabel, imageName = '팀.jpg',
   showIds, onToggleShowIds,
@@ -284,6 +285,12 @@ export default function OrgTreePanel({
     onPickRank: (id, rank) => {
       onUpdate(id, { rank })
       setPickingRankId(null) // 고르면 목록은 할 일을 다 했다
+    },
+    // 이식하면 이 자리 아래가 통째로 바뀐다 — 편집창이 덮고 있으면 그걸 못 보므로 먼저 닫는다
+    onImportSubtree: (id) => {
+      setEditingId(null)
+      setPickingRankId(null)
+      onImportSubtree?.(id)
     },
     onClosePopups: () => {
       setEditingId(null)

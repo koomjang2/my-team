@@ -3,7 +3,10 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import OrgTreePanel from './components/OrgTreePanel.jsx'
 import EffectiveTreePanel from './components/EffectiveTreePanel.jsx'
 import TopBar from './components/TopBar.jsx'
+import ImportSummaryBar from './components/ImportSummaryBar.jsx'
 import { computeEffectiveRanks, analyzeGap } from './engine/rankEngine.js'
+import { collapseVacated, collectDescendants, graftSubtree, validateLineageFile } from './engine/subtreeImport.js'
+import { diffSubtree } from './engine/subtreeDiff.js'
 import { RANK_NONE, STATUS_ACTIVE } from './engine/ranks.js'
 
 const STORAGE_KEY = 'my-team-lineage-v1'
@@ -67,6 +70,11 @@ function rootNameForFile(rootNode) {
   return raw.replace(/[\\/:*?"<>|]/g, '')
 }
 
+/** 불러온 파일이 같은 보름을 계획한 것인가 — 다르면 이식 확인창에서 짚어 준다 */
+function samePeriod(a, b) {
+  return a?.year === b?.year && a?.month === b?.month && a?.half === b?.half
+}
+
 /** 인쇄·그림에 찍히는 한 줄짜리 기간 표기 — 화면 선택지(TopBar)와 같은 말로 맞춘다 */
 function formatPeriod(period) {
   if (!period) return ''
@@ -103,22 +111,6 @@ function vacate(node) {
   }
 }
 
-/**
- * 쓸모없어진 빈 자리를 걷어낸다 — 하위가 하나 남으면 그 하나가 자리를 물려받고,
- * 하나도 없으면 자리도 사라진다. 빈 자리는 **갈림길일 때만** 뜻이 있기 때문이다.
- * 걷어내면서 위쪽 빈 자리가 또 홀쭉해질 수 있어 더 걷을 것이 없을 때까지 돈다.
- */
-function collapseVacated(nodes) {
-  let out = nodes
-  for (;;) {
-    const dead = out.find((n) => n.vacated && out.filter((k) => k.parentId === n.id).length < 2)
-    if (!dead) return out
-    out = out
-      .filter((n) => n.id !== dead.id)
-      .map((n) => (n.parentId === dead.id ? { ...n, parentId: dead.parentId, side: dead.side } : n))
-  }
-}
-
 // 되돌리기로 거슬러 올라갈 수 있는 최대 단계
 const HISTORY_LIMIT = 50
 // 한 글자씩 들어오는 칸 — 되돌리기 단계를 글자 수만큼 쌓지 않도록 묶어서 다룬다
@@ -128,6 +120,12 @@ export default function App() {
   const [state, setState] = useState(loadInitialState)
   const [selectedId, setSelectedId] = useState(null)
   const loadInputRef = useRef(null)
+
+  // 계보도 이식 — 어느 자리에 꽂을지(`importTargetRef`)와 무엇이 달라졌는지(`importSummary`).
+  // 요약은 스스로 사라지지 않는다 — 되돌릴지 정하는 근거라 다 읽을 때까지 남는다.
+  const importInputRef = useRef(null)
+  const importTargetRef = useRef(null)
+  const [importSummary, setImportSummary] = useState(null)
 
   // 맨 위 입력 메뉴 접기 — 좁은 화면에서 계보도에 자리를 내주기 위한 것이라 취향을 기억해 둔다
   const [menuOpen, setMenuOpen] = useState(() => {
@@ -446,6 +444,69 @@ export default function App() {
     reader.readAsText(file, 'utf-8')
   }
 
+  /**
+   * 카드의 '계보도 불러오기' — 어느 자리에 꽂을지 기억해 두고 파일 고르기를 연다.
+   * 파일 입력칸은 '열기'(계보도 통째로 바꾸기)와 따로 둔다 — 하는 일이 전혀 다르다.
+   */
+  function handleImportSubtree(nodeId) {
+    importTargetRef.current = nodeId
+    importInputRef.current?.click()
+  }
+
+  /**
+   * 고른 자리와 그 아래를 파일 내용으로 갈아 끼운다.
+   * 검증에서 걸리면 **계보도는 한 글자도 바뀌지 않고** 무엇이 잘못됐는지만 알린다.
+   */
+  function handleImportFile(event) {
+    const file = event.target.files?.[0]
+    const targetId = importTargetRef.current
+    event.target.value = '' // 같은 파일을 다시 골라도 change 가 뜨도록 비워 둔다
+    if (!file || !targetId) return
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      let parsed
+      try {
+        parsed = JSON.parse(String(reader.result ?? '{}'))
+      } catch {
+        setImportSummary({ error: '파일을 읽을 수 없습니다 — JSON 형식이 아닙니다.' })
+        return
+      }
+
+      const checked = validateLineageFile(parsed)
+      if (!checked.ok) {
+        setImportSummary({ error: checked.error })
+        return
+      }
+
+      const before = state.nodes
+      const target = before.find((n) => n.id === targetId)
+      if (!target) return
+
+      const targetName = (target.name ?? '').trim() || '이름 없음'
+      const fileName = (checked.root.name ?? '').trim() || '이름 없음'
+      const lines = [
+        `'${targetName}' 자리를 파일 내용으로 바꿉니다.`,
+        '',
+        `  지금 계보도 : ${targetName} (아래 ${collectDescendants(before, targetId).length}명)`,
+        `  불러올 파일 : ${fileName} (아래 ${checked.nodes.length - 1}명)`,
+      ]
+      // 파일이 다른 보름을 계획한 것이면 짚어 준다 — 기간 자체는 가져오지 않는다
+      if (parsed.period && !samePeriod(parsed.period, state.period)) {
+        lines.push(`  파일 기간   : ${formatPeriod(parsed.period)} ← 지금 화면과 다릅니다`)
+      }
+      lines.push('', '되돌리기로 되돌릴 수 있습니다.')
+      if (!window.confirm(lines.join('\n'))) return
+
+      pushHistory()
+      const after = graftSubtree(before, targetId, checked.nodes, makeId)
+      setNodes(after)
+      setImportSummary({ name: fileName, diff: diffSubtree(before, after, targetId) })
+    }
+    reader.onerror = () => setImportSummary({ error: '파일 읽기에 실패했습니다.' })
+    reader.readAsText(file, 'utf-8')
+  }
+
   function handleResetTree() {
     if (!window.confirm('계보도를 초기화할까요? 현재 구성이 모두 삭제됩니다.')) return
     pushHistory()
@@ -462,6 +523,17 @@ export default function App() {
         className="hidden"
         onChange={handleLoadTreeFile}
       />
+
+      {/* 계보도 이식 전용 — '열기'(통째로 바꾸기)와 하는 일이 달라 입력칸도 따로 둔다 */}
+      <input
+        ref={importInputRef}
+        type="file"
+        accept=".json,application/json"
+        className="hidden"
+        onChange={handleImportFile}
+      />
+
+      <ImportSummaryBar summary={importSummary} onClose={() => setImportSummary(null)} />
 
       <header className="no-print flex flex-shrink-0 items-center gap-2 border-b bg-white px-3 py-2 shadow-sm">
         <h1 className="flex min-w-0 flex-1 items-center gap-2 leading-tight">
@@ -513,6 +585,7 @@ export default function App() {
           onUpdate={handleUpdate}
           onSaveTree={() => handleSaveTree('팀')}
           onLoadTree={() => loadInputRef.current?.click()}
+          onImportSubtree={handleImportSubtree}
           onResetTree={handleResetTree}
           onUndo={handleUndo}
           canUndo={history.length > 0}
@@ -571,3 +644,4 @@ export default function App() {
     </div>
   )
 }
+

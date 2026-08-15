@@ -126,6 +126,62 @@ B 가 좌 · D·E·F·G 가 **모두 A 의 우 레그**다. 빈 자리는 `rank:
 > 루트('나')는 삭제 버튼이 없다. 계보도 일부를 통째로 지우려면 아래에서부터 하나씩
 > 지운다. 잘못 눌렀으면 되돌리기 한 번에 원래 자리까지 그대로 돌아온다.
 
+### 계보도 이식 — 고른 자리 아래를 남의 파일로 갈아 끼운다
+편집창 머리줄의 `계보도 불러오기`. 하위 사업자가 자기 계보도를 새로 짜서 보내 왔을 때,
+그 자리와 **그 아래 전부**를 파일 내용으로 바꾼다. (`src/engine/subtreeImport.js`)
+
+```
+  내 계보도              A 가 준 파일        이식 결과
+  나 ─우─ A ─좌─ 가       A' ─좌─ B          나 ─우─ A' ─좌─ B
+                            └우─ C                    └우─ C
+```
+
+계보도가 평평한 배열이라 **파일 루트에 내 `parentId`·`side` 만 갈아 끼우면** 그 자리에
+매달린다. 엔진(`rankEngine.js`)은 한 줄도 안 건드린다 — 붙는 순간 다시 계산된다.
+
+접합점(고른 자리)에서 **내 것으로 남는 것은 셋뿐**이다:
+
+| 남기는 것 | 왜 |
+|---|---|
+| `id` | 안 물려받으면 열려 있던 편집창과 `selectedId` 가 끊긴다 |
+| `parentId` · `side` | 파일 루트는 `null` 이라 안 갈면 트리가 두 동강 난다 |
+| `memo` | 내가 그 사람을 보고 적은 것이라 파일 메모와 **합친다**(`mergeMemo`) |
+
+나머지(이름·회원ID·명목직급·**목표직급**·PV)는 **파일이 이긴다** — 본인이 자기를 더 잘 안다.
+목표 직급까지 덮으므로 **내 실질 직급이 내려앉을 수 있다. 그것이 이 기능의 값어치다** —
+A 의 실제 계획을 넣었을 때 내 직급이 어떻게 되는지가 오른쪽 패널에 바로 나온다.
+
+**id 는 파일 것을 전부 새로 발급한다.** A 가 예전에 내 파일을 받아 고친 것이라면 id 가
+글자 그대로 같을 수 있고, 그대로 두면 `parentId` 가 엉뚱한 회원을 가리켜 계보도가 무너진다.
+`graftSubtree` 가 `makeId` 를 **인자로 받는** 이유도 이것이다 — 테스트에서 예측 가능한
+id 를 넣어 검사한다.
+
+검증(`validateLineageFile`)에 걸리면 **배열은 한 글자도 안 바뀐다**: 루트가 하나인가 ·
+끊긴 `parentId` 없는가 · 순환/고아 없는가 · 한 자리에 둘 없는가 · `side` 값이 맞는가.
+기존 '열기'(통째로 바꾸기)보다 엄격한 이유는 남의 파일을 계보도 **한가운데**에 꽂기 때문이다.
+
+파일의 `period`·`ui` 는 **안 가져온다** — 보름 기간은 내 계획이다. 다만 파일 기간이
+내 화면과 다르면 확인창에서 짚어 준다.
+
+### 이식 결과 알림 (`ImportSummaryBar.jsx` · `subtreeDiff.js`)
+이식 직후 화면 아래에 **변경 / 추가 / 삭제**를 정리해 띄운다. **스스로 사라지지 않는다** —
+되돌릴지 정하는 근거라 ✕ 를 누르거나 다음 이식 때까지 남는다. 요약 줄만 늘 보이고
+목록은 접혀 있다(큰 계보도는 수십 줄이 된다). 인쇄·그림에는 안 나온다(`no-print`).
+
+이식하면서 id 를 전부 새로 발급하므로 **id 로는 같은 사람을 못 찾는다.** 그래서 두 단계로 짝짓는다:
+1. **회원 ID** — 양쪽에 있고 각각 한 명뿐일 때만. 자리를 옮겨도 따라가 '자리 이동'으로 잡힌다.
+2. **자리(좌/우 경로)** — 남은 사람끼리.
+
+**자리가 같다고 같은 사람이 아니다.** 옛 좌 하위가 '나1' 인데 새 좌 하위가 'B' 라면 나1 이
+B 로 '변경'된 게 아니라 나1 이 빠지고 B 가 들어온 것이다. 그래서 이름이나 회원 ID 가 양쪽 다
+있는데 서로 다르면 **짝짓지 않는다**(`looksLikeSamePerson`). 한쪽이 비어 있으면 뒤늦게
+채운 것으로 보고 짝짓는다. **접합점만 예외** — 갈아 끼운 그 자리 자체라 이름이 달라도 짝이다.
+
+메모는 덮어쓰는 게 아니라 합치므로 `있음 → 있음` 이 아니라 `합쳐짐`/`새로 들어옴` 으로 적는다.
+
+> 검증: `node src/engine/subtreeImport.test.js` (59건). **id 가 통째로 겹치는 파일**이
+> 가장 중요한 케이스다 — 이게 깨지면 남의 계보도를 불러올 때 내 계보도가 무너진다.
+
 ### 되돌리기 (좌 패널 플로팅 버튼)
 `App.jsx` 가 손대기 **직전** 상태(`{nodes, period}` 통째로)를 `history` 에 쌓고,
 버튼이 한 단계씩 돌려놓는다. 최대 50단계, 메모리에만 있고 저장하지 않는다.
@@ -169,7 +225,7 @@ B 가 좌 · D·E·F·G 가 **모두 A 의 우 레그**다. 빈 자리는 `rank:
 ## 기술 스택
 - React + Vite, Tailwind CSS
 - 상태: `App.jsx` 의 useState + localStorage 자동 저장
-- 엔진 테스트: `node src/engine/rankEngine.test.js`
+- 엔진 테스트: `node src/engine/rankEngine.test.js` · `node src/engine/subtreeImport.test.js`
 
 ## 핵심 도메인 규칙
 
@@ -225,6 +281,9 @@ SSM → SM → DM → SRM → STM → RM → CM → IM
 src/engine/ranks.js          직급 정의 · 달성 조건 테이블 · 색상
 src/engine/rankEngine.js     실질 직급 계산 · 레그 카운팅 · 부족분 분석
 src/engine/rankEngine.test.js 문서 인원 수치 대조 검증
+src/engine/subtreeImport.js  계보도 이식 — 파일 검증 · id 재발급 · 접합 · 빈 자리 정리
+src/engine/subtreeDiff.js    이식 전후 견주기 (변경/추가/삭제) — 스낵바가 읽는 값
+src/engine/subtreeImport.test.js 이식·견주기 검증 (id 충돌 포함)
 src/components/OrgTreePanel.jsx      좌: 나의 계보도 (카드 터치 → 직급 선택)
 src/components/EffectiveTreePanel.jsx 우: 목표 계보도 (좌측에서 파생, 자동 반영)
 src/components/NodeEditorPopover.jsx 이름/ID → 명목 직급(접힘) → 목표 직급 → PV → 메모
@@ -233,6 +292,7 @@ src/components/keyboard.js           단축키(esc · ` 1~8 · Q/W) + 글자 칸
 src/components/TopBar.jsx            맨 위 줄 — 기간(년·월·반기)을 한 줄에
 src/components/NumberField.jsx       PV 입력칸 (0 이면 포커스 때 비운다)
 src/components/CaptureCaption.jsx    인쇄·그림에만 찍히는 대상 기간 머리글
+src/components/ImportSummaryBar.jsx  이식 결과 알림 — 변경/추가/삭제 (스스로 안 사라진다)
 src/components/TreePanelHeader.jsx   두 패널 공용 머리줄 (제목 + 메뉴 + 요약 접기)
 src/components/CopyableId.jsx        회원 ID + 복사 아이콘 (clipboard API, execCommand 폴백)
 src/components/usePanZoom.js         팬 + 휠줌 + 핀치줌 (두 패널 공용)

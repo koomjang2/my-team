@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { FolderInput } from 'lucide-react'
 import {
   ALL_RANKS, NOMINAL_RANKS, RANK_COLORS_SOFT, RANK_COLORS_STRONG, RANK_HOTKEY, RANK_LABEL,
   RANK_SHORT_LABEL, RANK_NONE, hasMemberPv,
@@ -27,9 +28,12 @@ const RANK_BTN = 'rounded border px-1 py-1 text-[10px] font-bold leading-tight t
  * 손이 먼저 닿아야 하는 것(이름·ID)을 맨 위에 둔다.
  *
  * 단축키는 커서가 글자 칸에 없을 때만 듣는다 (esc 만 예외) — `keyboard.js` 참고.
+ *
+ * 머리줄의 '계보도 불러오기' 는 **이 자리와 그 아래를 파일 내용으로 갈아 끼운다** —
+ * 하위 사업자가 자기 계보도를 새로 짜서 보내 왔을 때 쓴다 (`subtreeImport.js`).
  */
 export default function NodeEditorPopover({
-  node, onUpdate, onClose, onAddLeft, onAddRight,
+  node, onUpdate, onClose, onAddLeft, onAddRight, onImportSubtree,
 }) {
   const isConsumer = node.rank === 'CSM'
   const isNone = node.rank === RANK_NONE
@@ -57,7 +61,15 @@ export default function NodeEditorPopover({
       className="no-print mt-1.5 w-56 rounded-lg border bg-white p-2 text-xs shadow-xl z-[200]"
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="mb-1.5 flex items-center justify-end">
+      <div className="mb-1.5 flex items-center justify-between gap-1">
+        <button
+          className="flex items-center gap-1 rounded border border-sky-300 bg-sky-50 px-1.5 py-0.5 font-medium text-sky-700 hover:bg-sky-100"
+          onClick={onImportSubtree}
+          title="이 자리와 그 아래를 파일 내용으로 바꿉니다"
+        >
+          <FolderInput size={12} />
+          계보도 불러오기
+        </button>
         <button
           className="flex items-center gap-1 rounded border border-gray-200 px-1.5 py-0.5 font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-700"
           onClick={onClose}
