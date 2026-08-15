@@ -9,8 +9,19 @@ import { usePanZoom } from './usePanZoom.js'
 import { usePanelCapture } from './usePanelCapture.js'
 
 const CARD_WIDTH = 96
-// 왼쪽 패널과 같은 비율로 좁혔다 (OrgTreePanel 의 주석 참고) — 두 패널 모양이 어긋나면 안 된다
-const layout = makeLayout({ cardWidth: CARD_WIDTH, emptyLaneWidth: 100, branchGap: 20 })
+/**
+ * 이 패널은 **전체 구조를 한눈에 보는 화면**이라 왼쪽(짜는 화면)보다 훨씬 촘촘하다.
+ * 특히 `missingLaneWidth` — 자식이 한쪽만 있는 회원이 없는 쪽에 비워 두는 폭 — 를
+ * 카드 한 장(96)이 아니라 24 로 줄였다. 외자식이 줄줄이 이어지면 그 빈 폭이 층마다
+ * 쌓여 계보도가 옆으로 크게 벌어지던 것이 이 패널에서 가장 컸다.
+ * 여기서는 `+좌`/`+우` 버튼이 없어 빈 자리를 남겨 둘 까닭도 없다.
+ */
+const layout = makeLayout({
+  cardWidth: CARD_WIDTH,
+  emptyLaneWidth: CARD_WIDTH,
+  branchGap: 16,
+  missingLaneWidth: 24,
+})
 
 /**
  * '목표 계보도' 카드 — 이름도 색도 **목표 직급**(`node.rank`)을 그대로 따른다.

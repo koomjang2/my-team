@@ -4,8 +4,18 @@ export function childOf(nodes, parentId, side) {
   return nodes.find((n) => n.parentId === parentId && n.side === side) ?? null
 }
 
-export function makeLayout({ cardWidth, emptyLaneWidth, branchGap }) {
+/**
+ * @param cardWidth       카드 한 장 폭
+ * @param emptyLaneWidth  자식이 **하나도 없는** 회원(잎)이 차지하는 최소 레인 폭
+ * @param branchGap       좌 레인과 우 레인 사이 틈
+ * @param missingLaneWidth 자식이 **한쪽만 있을 때** 없는 쪽에 비워 두는 폭.
+ *   이 값이 곧 외자식이 부모에서 좌/우로 비껴 앉는 거리를 만든다((없는쪽 + 틈) / 2).
+ *   기본은 레인 하나만큼(`laneMin`) — 넉넉해서 좌/우가 한눈에 갈리지만 그만큼 넓어진다.
+ *   좁게 주면 계보도가 확 모이는 대신 비낌이 작아진다.
+ */
+export function makeLayout({ cardWidth, emptyLaneWidth, branchGap, missingLaneWidth }) {
   const laneMin = Math.max(cardWidth, emptyLaneWidth)
+  const missingLane = missingLaneWidth ?? laneMin
 
   function subtreeWidth(nodeId, nodes, cache = new Map()) {
     if (cache.has(nodeId)) return cache.get(nodeId)
@@ -15,8 +25,8 @@ export function makeLayout({ cardWidth, emptyLaneWidth, branchGap }) {
       cache.set(nodeId, laneMin)
       return laneMin
     }
-    const leftWidth = left ? subtreeWidth(left.id, nodes, cache) : laneMin
-    const rightWidth = right ? subtreeWidth(right.id, nodes, cache) : laneMin
+    const leftWidth = left ? subtreeWidth(left.id, nodes, cache) : missingLane
+    const rightWidth = right ? subtreeWidth(right.id, nodes, cache) : missingLane
     const width = leftWidth + rightWidth + branchGap
     cache.set(nodeId, width)
     return width
@@ -27,8 +37,8 @@ export function makeLayout({ cardWidth, emptyLaneWidth, branchGap }) {
     const left = childOf(nodes, nodeId, 'left')
     const right = childOf(nodes, nodeId, 'right')
     const cache = new Map()
-    const leftLaneWidth = left ? subtreeWidth(left.id, nodes, cache) : laneMin
-    const rightLaneWidth = right ? subtreeWidth(right.id, nodes, cache) : laneMin
+    const leftLaneWidth = left ? subtreeWidth(left.id, nodes, cache) : missingLane
+    const rightLaneWidth = right ? subtreeWidth(right.id, nodes, cache) : missingLane
     return {
       left,
       right,
