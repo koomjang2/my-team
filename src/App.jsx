@@ -69,14 +69,6 @@ const HISTORY_LIMIT = 50
 // 한 글자씩 들어오는 칸 — 되돌리기 단계를 글자 수만큼 쌓지 않도록 묶어서 다룬다
 const TYPED_FIELDS = new Set(['name', 'memberId', 'memo', 'memberPvMan', 'consumerMan'])
 
-function collectSubtreeIds(nodeId, nodes) {
-  const ids = [nodeId]
-  for (const child of nodes.filter((n) => n.parentId === nodeId)) {
-    ids.push(...collectSubtreeIds(child.id, nodes))
-  }
-  return ids
-}
-
 export default function App() {
   const [state, setState] = useState(loadInitialState)
   const [selectedId, setSelectedId] = useState(null)
@@ -288,11 +280,50 @@ export default function App() {
     })
   }
 
+  /**
+   * 회원 한 명만 지우고 하위는 위로 끌어올린다 (하위까지 통째로 지우지 않는다).
+   *
+   *   A ─좌─ B                    A ─좌─ B
+   *     └우─ C ─좌─ D ─F    →       └우─ D ─좌─ F
+   *            └우─ E ─G                  └우─ E ─G
+   *
+   * 이진 구조라 빈자리는 하나뿐인데 하위가 둘일 수 있다. 그래서
+   *   좌 하위가 지워진 자리를 물려받고,
+   *   우 하위는 물려받은 회원의 **우 라인을 따라 내려가 첫 빈 우 자리**에 붙는다.
+   * 우 하위가 우 쪽에 남으므로 좌/우 성격이 최대한 유지된다.
+   * 하위가 하나뿐이면 그 하나가 그냥 자리를 물려받는다.
+   */
   function handleRemove(nodeId) {
     pushHistory()
-    const doomed = new Set(collectSubtreeIds(nodeId, nodes))
-    setNodes((prev) => prev.filter((n) => !doomed.has(n.id)))
-    if (selectedId && doomed.has(selectedId)) setSelectedId(null)
+    setNodes((prev) => {
+      const target = prev.find((n) => n.id === nodeId)
+      if (!target) return prev
+      // 루트('나')는 물려줄 윗자리가 없다 — 카드에 삭제 버튼도 달리지 않는다
+      if (!target.parentId) return prev
+
+      const childOf = (id, side) => prev.find((n) => n.parentId === id && n.side === side)
+      const left = childOf(nodeId, 'left')
+      const right = childOf(nodeId, 'right')
+
+      // id → 새 부모/자리
+      const moved = new Map()
+      const heir = left ?? right
+      if (heir) moved.set(heir.id, { parentId: target.parentId, side: target.side })
+
+      // 좌·우가 둘 다 있을 때만 밀려나는 쪽이 생긴다
+      if (left && right) {
+        let host = left
+        for (let next = childOf(host.id, 'right'); next; next = childOf(host.id, 'right')) {
+          host = next
+        }
+        moved.set(right.id, { parentId: host.id, side: 'right' })
+      }
+
+      return prev
+        .filter((n) => n.id !== nodeId)
+        .map((n) => (moved.has(n.id) ? { ...n, ...moved.get(n.id) } : n))
+    })
+    if (selectedId === nodeId) setSelectedId(null)
   }
 
   function handleUpdate(nodeId, patch) {
