@@ -42,10 +42,20 @@ export function usePanZoom(contentKey) {
    */
   const contentBoxRef = useRef(null)
 
+  /**
+   * 인쇄·그림 저장 중인가.
+   * 그때는 CSS 가 패널을 원본 크기로 펼치고 팬 변형을 지운다(index.css 의 @media print).
+   * 그 상태에서 재면 화면과 전혀 다른 값이 나오므로, 다 끝난 뒤 다시 잰다.
+   */
+  function isCapturing() {
+    return document.body.classList.contains('print-panel-mode')
+      || document.body.classList.contains('capture-mode')
+  }
+
   function measureContent() {
     const container = containerRef.current
     const layer = layerRef.current
-    if (!container || !layer) return
+    if (!container || !layer || isCapturing()) return
     const units = layer.querySelectorAll('[data-tree-unit]')
     if (!units.length) return
 
@@ -217,6 +227,9 @@ export function usePanZoom(contentKey) {
     measureContent()
     apply()
     const ro = new ResizeObserver(() => {
+      // 인쇄·그림 저장이 패널을 잠시 펼칠 때도 여기가 불린다 — 그때는 손대지 않는다.
+      // (끝나고 원래 크기로 돌아올 때 다시 불리므로 그때 제대로 잡힌다)
+      if (isCapturing()) return
       measureContent()
       apply()
     })

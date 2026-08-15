@@ -251,6 +251,11 @@ export default function App() {
     setHistory((past) => [...past, state].slice(-HISTORY_LIMIT))
   }
 
+  /** 편집창을 닫으면 '이어 고치던 흐름' 이 끝난 것으로 본다 — 다시 열어 고치면 새 단계가 쌓인다 */
+  function handleEndEdit() {
+    lastCoalesceKeyRef.current = null
+  }
+
   function handleUndo() {
     setHistory((past) => {
       if (!past.length) return past
@@ -425,6 +430,7 @@ export default function App() {
           onResetTree={handleResetTree}
           onUndo={handleUndo}
           canUndo={history.length > 0}
+          onEndEdit={handleEndEdit}
           periodLabel={formatPeriod(period)}
           showIds={showOrgIds}
           onToggleShowIds={() => setShowOrgIds((on) => !on)}

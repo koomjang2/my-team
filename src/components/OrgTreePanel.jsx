@@ -231,7 +231,7 @@ export default function OrgTreePanel({
   nodes, effRankMap, gapMap, selectedId,
   onAdd, onRemove, onUpdate,
   onSaveTree, onLoadTree, onResetTree,
-  onUndo, canUndo,
+  onUndo, canUndo, onEndEdit,
   periodLabel,
   showIds, onToggleShowIds,
   style,
@@ -266,6 +266,7 @@ export default function OrgTreePanel({
     onClosePopups: () => {
       setEditingId(null)
       setPickingRankId(null)
+      onEndEdit?.() // 되돌리기 단계를 여기서 끊는다 — 다시 열어 고치면 새 단계
     },
   }
 
