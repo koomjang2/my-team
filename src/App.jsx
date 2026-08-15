@@ -64,6 +64,40 @@ function formatPeriod(period) {
   return `${period.year}년 ${period.month}월 ${half}`
 }
 
+/**
+ * 사람만 비우고 자리는 남긴다 — 하위의 좌/우를 지키기 위한 '빈 자리'.
+ * 직급을 `NONE` 으로 두므로 레그 카운팅이 건너뛰고, 오른쪽 패널도 알아서 감춘다.
+ */
+function vacate(node) {
+  return {
+    ...node,
+    vacated: true,
+    name: '',
+    memberId: '',
+    nominalRank: RANK_NONE,
+    rank: RANK_NONE,
+    memberPvMan: 0,
+    consumerMan: 0,
+    memo: '',
+  }
+}
+
+/**
+ * 쓸모없어진 빈 자리를 걷어낸다 — 하위가 하나 남으면 그 하나가 자리를 물려받고,
+ * 하나도 없으면 자리도 사라진다. 빈 자리는 **갈림길일 때만** 뜻이 있기 때문이다.
+ * 걷어내면서 위쪽 빈 자리가 또 홀쭉해질 수 있어 더 걷을 것이 없을 때까지 돈다.
+ */
+function collapseVacated(nodes) {
+  let out = nodes
+  for (;;) {
+    const dead = out.find((n) => n.vacated && out.filter((k) => k.parentId === n.id).length < 2)
+    if (!dead) return out
+    out = out
+      .filter((n) => n.id !== dead.id)
+      .map((n) => (n.parentId === dead.id ? { ...n, parentId: dead.parentId, side: dead.side } : n))
+  }
+}
+
 // 되돌리기로 거슬러 올라갈 수 있는 최대 단계
 const HISTORY_LIMIT = 50
 // 한 글자씩 들어오는 칸 — 되돌리기 단계를 글자 수만큼 쌓지 않도록 묶어서 다룬다
@@ -272,6 +306,13 @@ export default function App() {
       const inserted = makeNode({ parentId, side, rank: 'SM', name: '' })
       const occupant = prev.find((n) => n.parentId === parentId && n.side === side)
       if (!occupant) return [...prev, inserted]
+
+      // 그 자리가 삭제로 비워 둔 자리라면 위에 끼우지 않고 **그 자리를 채운다** —
+      // 하위는 그대로 매달린 채 사람만 다시 들어온다 (id 를 물려받아야 하위가 안 끊긴다)
+      if (occupant.vacated) {
+        return prev.map((n) => (n.id === occupant.id ? { ...inserted, id: n.id } : n))
+      }
+
       // 자리를 내준 회원만 부모를 바꾼다 — 그 아래는 손대지 않아도 함께 따라 내려간다
       return [
         ...prev.map((n) => (n.id === occupant.id ? { ...n, parentId: inserted.id } : n)),
@@ -281,17 +322,19 @@ export default function App() {
   }
 
   /**
-   * 회원 한 명만 지우고 하위는 위로 끌어올린다 (하위까지 통째로 지우지 않는다).
+   * 회원 한 명만 지운다 — **하위 회원의 좌/우는 절대 바뀌지 않는다.**
    *
    *   A ─좌─ B                    A ─좌─ B
-   *     └우─ C ─좌─ D ─F    →       └우─ D ─좌─ F
-   *            └우─ E ─G                  └우─ E ─G
+   *     └우─ C ─좌─ D ─F    →       └우─ (빈 자리) ─좌─ D ─F
+   *            └우─ E ─G                          └우─ E ─G
    *
-   * 이진 구조라 빈자리는 하나뿐인데 하위가 둘일 수 있다. 그래서
-   *   좌 하위가 지워진 자리를 물려받고,
-   *   우 하위는 물려받은 회원의 **우 라인을 따라 내려가 첫 빈 우 자리**에 붙는다.
-   * 우 하위가 우 쪽에 남으므로 좌/우 성격이 최대한 유지된다.
-   * 하위가 하나뿐이면 그 하나가 그냥 자리를 물려받는다.
+   * 하위가 **둘**이면 자리 자체를 남기고 사람만 비운다(`vacated`). 화면에서는 카드가
+   * 사라지고 선만 지나가므로 A 밑이 세 갈래로 보이지만, 실제로는 D·E·F·G 가 모두
+   * A 의 **우** 레그다. 빈 자리는 직급이 `NONE` 이라 레그 카운팅이 건너뛰고 그 아래까지
+   * 계속 세므로 직급 계산은 달라지지 않는다.
+   *
+   * 하위가 하나면 그 하나가 자리를 물려받고, 없으면 자리도 함께 사라진다
+   * (오른쪽 '목표 계보도' 가 '없음' 회원을 접는 규칙과 같다 — `collapseHidden`).
    */
   function handleRemove(nodeId) {
     pushHistory()
@@ -301,27 +344,14 @@ export default function App() {
       // 루트('나')는 물려줄 윗자리가 없다 — 카드에 삭제 버튼도 달리지 않는다
       if (!target.parentId) return prev
 
-      const childOf = (id, side) => prev.find((n) => n.parentId === id && n.side === side)
-      const left = childOf(nodeId, 'left')
-      const right = childOf(nodeId, 'right')
+      const childCount = prev.filter((n) => n.parentId === nodeId).length
+      const next = childCount >= 2
+        ? prev.map((n) => (n.id === nodeId ? vacate(n) : n))
+        : prev
+            .filter((n) => n.id !== nodeId)
+            .map((n) => (n.parentId === nodeId ? { ...n, parentId: target.parentId, side: target.side } : n))
 
-      // id → 새 부모/자리
-      const moved = new Map()
-      const heir = left ?? right
-      if (heir) moved.set(heir.id, { parentId: target.parentId, side: target.side })
-
-      // 좌·우가 둘 다 있을 때만 밀려나는 쪽이 생긴다
-      if (left && right) {
-        let host = left
-        for (let next = childOf(host.id, 'right'); next; next = childOf(host.id, 'right')) {
-          host = next
-        }
-        moved.set(right.id, { parentId: host.id, side: 'right' })
-      }
-
-      return prev
-        .filter((n) => n.id !== nodeId)
-        .map((n) => (moved.has(n.id) ? { ...n, ...moved.get(n.id) } : n))
+      return collapseVacated(next)
     })
     if (selectedId === nodeId) setSelectedId(null)
   }

@@ -165,26 +165,35 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, pickingRankId,
   return (
     // data-tree-unit: 팬 범위를 가둘 때 재는 덩어리 — 카드 + [좌][우] 버튼이 다 들어 있다 (usePanZoom.js)
     <div data-tree-unit="true" className="flex flex-col items-center" style={{ minWidth: row.hasChildren ? row.childRowWidth : CARD_WIDTH }}>
-      <NodeCard
-        node={node}
-        effRank={effRankMap.get(node.id)}
-        gap={gapMap.get(node.id)}
-        isSelected={selectedId === node.id}
-        isEditing={editingId === node.id}
-        isPickingRank={pickingRankId === node.id}
-        showIds={showIds}
-        hasLeft={row.hasLeft}
-        hasRight={row.hasRight}
-        onOpenEditor={() => handlers.onOpenEditor(node.id)}
-        onOpenRankPicker={() => handlers.onOpenRankPicker(node.id)}
-        onPickRank={(r) => handlers.onPickRank(node.id, r)}
-        onClosePopups={handlers.onClosePopups}
-        onAddLeft={addLeft}
-        onAddRight={addRight}
-        onRemove={isRoot ? undefined : () => handlers.onRemove(node.id)}
-      />
+      {/*
+        삭제로 비워 둔 자리 — 카드 없이 선만 지나간다. 하위의 좌/우를 지키려고 남긴
+        자리라 고칠 것도, 하위를 더 붙일 자리도 없다(좌·우가 이미 차 있다).
+        다시 채우려면 **윗 회원의 [+좌]/[+우]** 를 누르면 된다.
+      */}
+      {node.vacated ? (
+        <div className="h-4 w-px bg-gray-400" aria-hidden="true" />
+      ) : (
+        <NodeCard
+          node={node}
+          effRank={effRankMap.get(node.id)}
+          gap={gapMap.get(node.id)}
+          isSelected={selectedId === node.id}
+          isEditing={editingId === node.id}
+          isPickingRank={pickingRankId === node.id}
+          showIds={showIds}
+          hasLeft={row.hasLeft}
+          hasRight={row.hasRight}
+          onOpenEditor={() => handlers.onOpenEditor(node.id)}
+          onOpenRankPicker={() => handlers.onOpenRankPicker(node.id)}
+          onPickRank={(r) => handlers.onPickRank(node.id, r)}
+          onClosePopups={handlers.onClosePopups}
+          onAddLeft={addLeft}
+          onAddRight={addRight}
+          onRemove={isRoot ? undefined : () => handlers.onRemove(node.id)}
+        />
+      )}
 
-      {editingId === node.id && (
+      {editingId === node.id && !node.vacated && (
         <NodeEditorPopover
           node={node}
           onUpdate={(patch) => handlers.onUpdate(node.id, patch)}
