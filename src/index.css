@@ -62,12 +62,23 @@
     display: none !important;
   }
 
-  /* 상하 분할 기준선을 끄는 동안에는 화면 전체가 세로 리사이즈 커서 */
+  /* 분할 기준선을 끄는 동안에는 화면 전체가 리사이즈 커서 (상하 / 좌우 각각) */
   body.is-splitting,
   body.is-splitting * {
     cursor: row-resize !important;
     user-select: none !important;
   }
+  body.is-splitting-x,
+  body.is-splitting-x * {
+    cursor: col-resize !important;
+    user-select: none !important;
+  }
+}
+
+/* 좌우 기준선은 세로 배치에서 의미가 없다. 켜는 곳은 아래 미디어쿼리 한 곳뿐이므로
+   이 기본값(none)은 반드시 그 **앞**에 있어야 한다 — 뒤에 두면 뒤엣것이 이긴다. */
+.split-divider-v {
+  display: none;
 }
 
 /*
@@ -80,16 +91,21 @@
   .split-area {
     flex-direction: row;
   }
-  /* 상하 분할 비율(인라인 height)을 무효화하고 좌우 절반씩 */
+  /* 상하 분할 비율(인라인 height)을 무효화하고 너비로 나눈다.
+     너비는 App.jsx 가 .split-area 에 걸어 주는 --split-w (기본 절반) */
   .split-pane-top {
     height: auto !important;
-    width: 50%;
+    width: var(--split-w, 50%);
     border-bottom-width: 0;
-    border-right-width: 1px;
+    border-right-width: 0;
   }
   /* 상하 기준선은 좌우 배치에서 의미가 없다 */
   .split-divider {
     display: none;
+  }
+  /* 좌우 기준선은 여기서만 나온다 (기본값은 미디어쿼리 위쪽에서 none) */
+  .split-divider-v {
+    display: flex;
   }
 }
 

@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { ChevronDown, Plus } from 'lucide-react'
+import { ChevronDown, Plus, Undo2 } from 'lucide-react'
 import { RANK_COLORS, RANK_NONE, RANK_RULES, hasMemberPv, isNonRank, rankDisplay } from '../engine/ranks.js'
 import { makeLayout } from './treeLayout.js'
 import TreeConnectors from './TreeConnectors.jsx'
@@ -160,7 +160,8 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, pickingRankId,
   const addRight = () => handlers.onAdd(node.id, 'right')
 
   return (
-    <div className="flex flex-col items-center" style={{ minWidth: row.hasChildren ? row.childRowWidth : CARD_WIDTH }}>
+    // data-tree-unit: 팬 범위를 가둘 때 재는 덩어리 — 카드 + [좌][우] 버튼이 다 들어 있다 (usePanZoom.js)
+    <div data-tree-unit="true" className="flex flex-col items-center" style={{ minWidth: row.hasChildren ? row.childRowWidth : CARD_WIDTH }}>
       <NodeCard
         node={node}
         effRank={effRankMap.get(node.id)}
@@ -230,6 +231,7 @@ export default function OrgTreePanel({
   nodes, effRankMap, gapMap, selectedId,
   onAdd, onRemove, onUpdate,
   onSaveTree, onLoadTree, onResetTree,
+  onUndo, canUndo,
   periodLabel,
   showIds, onToggleShowIds,
   style,
@@ -237,7 +239,7 @@ export default function OrgTreePanel({
   // 편집창(큰 창)과 직급 고르기 목록(작은 목록)은 한 번에 하나만 뜬다
   const [editingId, setEditingId] = useState(null)
   const [pickingRankId, setPickingRankId] = useState(null)
-  const { containerRef, layerRef, onMouseDown, resetView } = usePanZoom()
+  const { containerRef, layerRef, onMouseDown, resetView } = usePanZoom(nodes)
   const panelRef = useRef(null)
   const innerRef = useRef(null)
   const { saveImage, print } = usePanelCapture({
@@ -294,8 +296,28 @@ export default function OrgTreePanel({
           if (e.target.closest?.('.tree-node-card')) return
           handlers.onClosePopups()
         }}
-        className="tree-print-area org-tree-pan-area min-h-0 flex-1 overflow-hidden bg-slate-50/30 p-4 md:min-h-[340px]"
+        className="tree-print-area org-tree-pan-area relative min-h-0 flex-1 overflow-hidden bg-slate-50/30 p-4 md:min-h-[340px]"
       >
+        {/*
+          되돌리기 — 팬 레이어 **밖**에 절대 배치라 화면을 아무리 끌어도 제자리에 떠 있다.
+          카드가 hover 때 z-[500] 까지 올라오므로 그보다 위(z-[600])에 둔다.
+          `data-no-pan` 은 이 버튼에서 시작한 드래그가 화면을 끌지 않게 한다 (손 모양 커서도 그래서 안 뜬다).
+        */}
+        {onUndo && (
+          <button
+            data-no-pan
+            onClick={onUndo}
+            disabled={!canUndo}
+            className={`no-print absolute left-2 top-2 z-[600] flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium shadow-md backdrop-blur transition-colors
+              ${canUndo
+                ? 'cursor-pointer border-slate-300 bg-white/90 text-slate-700 hover:bg-white hover:text-sky-700'
+                : 'cursor-not-allowed border-slate-200 bg-white/60 text-slate-300'}`}
+            title={canUndo ? '방금 한 작업 되돌리기' : '되돌릴 작업이 없습니다'}
+          >
+            <Undo2 size={12} /> 되돌리기
+          </button>
+        )}
+
         <div ref={layerRef} className="will-change-transform" style={{ transform: 'translate(0px, 0px) scale(1)', transformOrigin: '0 0' }}>
           <div ref={innerRef} className="origin-top scale-[0.85] transform transition-transform md:scale-100">
             <CaptureCaption title="나의 계보도" periodLabel={periodLabel} />

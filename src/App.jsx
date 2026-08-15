@@ -64,6 +64,11 @@ function formatPeriod(period) {
   return `${period.year}년 ${period.month}월 ${half}`
 }
 
+// 되돌리기로 거슬러 올라갈 수 있는 최대 단계
+const HISTORY_LIMIT = 50
+// 한 글자씩 들어오는 칸 — 되돌리기 단계를 글자 수만큼 쌓지 않도록 묶어서 다룬다
+const TYPED_FIELDS = new Set(['name', 'memberId', 'memo', 'memberPvMan', 'consumerMan'])
+
 function collectSubtreeIds(nodeId, nodes) {
   const ids = [nodeId]
   for (const child of nodes.filter((n) => n.parentId === nodeId)) {
@@ -115,18 +120,31 @@ export default function App() {
     }
   })
 
+  // 두 패널의 비율 — 세로 배치(좁은 화면)는 높이, 가로 배치(PC·눕힌 화면)는 너비로 나뉜다.
+  // 배치를 가르는 것은 CSS 미디어쿼리 하나뿐이므로(index.css), 두 값을 따로 들고 있다가
+  // 각 기준선이 자기 값만 고친다 — JS 로 화면 폭을 재지 않아 회전·리사이즈에도 어긋나지 않는다.
+  // 좌우 비율만 기억한다 — 상하 비율은 그때그때 화면 높이에 맞춰 잡는 값이라 남기지 않는다.
+  const [splitPct, setSplitPct] = useState(50)         // 상하(세로 배치)
+  const [splitPctX, setSplitPctX] = useState(() => {   // 좌우(가로 배치)
+    try {
+      const saved = JSON.parse(localStorage.getItem(UI_KEY) ?? '{}').splitPctX
+      return Number.isFinite(saved) ? Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, saved)) : 50
+    } catch {
+      return 50
+    }
+  })
+
   useEffect(() => {
     try {
-      localStorage.setItem(UI_KEY, JSON.stringify({ menuOpen, summaryOpen, showOrgIds, showEffectiveIds }))
+      localStorage.setItem(UI_KEY, JSON.stringify({ menuOpen, summaryOpen, showOrgIds, showEffectiveIds, splitPctX }))
     } catch {
       /* 저장 실패는 무시 — 접힘 상태를 못 기억할 뿐이다 */
     }
-  }, [menuOpen, summaryOpen, showOrgIds, showEffectiveIds])
+  }, [menuOpen, summaryOpen, showOrgIds, showEffectiveIds, splitPctX])
 
-  // 좁은 화면 상하 분할 — 기준선을 끌어 비율을 바꾼다 (기본 절반)
-  const [splitPct, setSplitPct] = useState(50)
   const splitAreaRef = useRef(null)
-  const splitDragRef = useRef(false)
+  const splitDragRef = useRef(false)   // 상하 기준선을 잡고 있는가
+  const splitDragXRef = useRef(false)  // 좌우 기준선을 잡고 있는가
 
   const { nodes, period } = state
   const me = nodes.find((n) => !n.parentId) ?? null
@@ -153,6 +171,14 @@ export default function App() {
     setSplitPct(Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, pct)))
   }
 
+  /** 좌우 배치에서 기준선을 끌 때 — 컨테이너 안에서의 X 비율이 곧 왼쪽 패널 너비다 */
+  function moveSplitXTo(clientX) {
+    const rect = splitAreaRef.current?.getBoundingClientRect()
+    if (!rect?.width) return
+    const pct = ((clientX - rect.left) / rect.width) * 100
+    setSplitPctX(Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, pct)))
+  }
+
   function startSplitDrag(e) {
     splitDragRef.current = true
     document.body.classList.add('is-splitting')
@@ -161,18 +187,32 @@ export default function App() {
     if (e.type === 'mousedown') e.preventDefault()
   }
 
+  function startSplitDragX(e) {
+    splitDragXRef.current = true
+    document.body.classList.add('is-splitting-x')
+    if (e.type === 'mousedown') e.preventDefault()
+  }
+
   useEffect(() => {
     function onMove(e) {
-      if (!splitDragRef.current) return
+      const clientX = e.touches ? e.touches[0]?.clientX : e.clientX
       const clientY = e.touches ? e.touches[0]?.clientY : e.clientY
+      if (splitDragXRef.current) {
+        if (clientX == null) return
+        moveSplitXTo(clientX)
+        e.preventDefault()
+        return
+      }
+      if (!splitDragRef.current) return
       if (clientY == null) return
       moveSplitTo(clientY)
       e.preventDefault()
     }
     function onEnd() {
-      if (!splitDragRef.current) return
+      if (!splitDragRef.current && !splitDragXRef.current) return
       splitDragRef.current = false
-      document.body.classList.remove('is-splitting')
+      splitDragXRef.current = false
+      document.body.classList.remove('is-splitting', 'is-splitting-x')
     }
     window.addEventListener('mousemove', onMove)
     window.addEventListener('mouseup', onEnd)
@@ -193,12 +233,44 @@ export default function App() {
   }
 
   /**
+   * 되돌리기 — 손대기 **직전** 상태를 쌓아 두었다가 한 단계씩 돌려놓는다.
+   *
+   * 쌓는 시점은 항상 `set...` 을 부르기 **전**이다. `setState(prev => …)` 안에서
+   * 쌓으면 StrictMode 가 개발 중에 갱신 함수를 두 번 부르면서 같은 상태가 두 번 들어간다.
+   *
+   * `coalesceKey` 는 글자를 칠 때 한 글자마다 한 단계가 쌓이는 것을 막는다 —
+   * 같은 회원의 같은 칸을 이어서 고치는 동안은 첫 상태 하나만 남는다.
+   * (시간이 아니라 '무엇을 고치는 중인가' 로 묶으므로 타이머 조정이 필요 없다)
+   */
+  const [history, setHistory] = useState([])
+  const lastCoalesceKeyRef = useRef(null)
+
+  function pushHistory(coalesceKey = null) {
+    if (coalesceKey && lastCoalesceKeyRef.current === coalesceKey) return
+    lastCoalesceKeyRef.current = coalesceKey
+    setHistory((past) => [...past, state].slice(-HISTORY_LIMIT))
+  }
+
+  function handleUndo() {
+    setHistory((past) => {
+      if (!past.length) return past
+      const prev = past[past.length - 1]
+      setState(prev)
+      // 되돌린 뒤에는 이어치던 흐름이 끊긴 것으로 본다 — 다음 편집은 새 단계가 된다
+      lastCoalesceKeyRef.current = null
+      if (selectedId && !prev.nodes.some((n) => n.id === selectedId)) setSelectedId(null)
+      return past.slice(0, -1)
+    })
+  }
+
+  /**
    * 좌/우 하위 추가. 그 자리가 비어 있으면 그냥 붙이고,
    * **이미 회원이 있으면 사이에 끼워 넣는다** — 새 회원이 부모 바로 아래로 들어가고
    * 원래 있던 회원은 하위 계보도를 통째로 달고 같은 방향(좌/우)으로 한 칸 내려간다.
    * 실제 후원 라인에 중간 스폰서를 하나 끼우는 것과 같은 모양이다.
    */
   function handleAdd(parentId, side) {
+    pushHistory()
     setNodes((prev) => {
       const inserted = makeNode({ parentId, side, rank: 'SM', name: '' })
       const occupant = prev.find((n) => n.parentId === parentId && n.side === side)
@@ -212,12 +284,18 @@ export default function App() {
   }
 
   function handleRemove(nodeId) {
+    pushHistory()
     const doomed = new Set(collectSubtreeIds(nodeId, nodes))
     setNodes((prev) => prev.filter((n) => !doomed.has(n.id)))
     if (selectedId && doomed.has(selectedId)) setSelectedId(null)
   }
 
   function handleUpdate(nodeId, patch) {
+    // 이름·ID·PV·메모는 한 글자마다 들어오므로 같은 칸을 이어 고치는 동안 한 단계로 묶는다.
+    // 직급 고르기는 한 번 누르면 끝나는 동작이라 묶지 않는다 — 매번 되돌릴 수 있어야 한다.
+    const keys = Object.keys(patch)
+    const coalesceKey = keys.length === 1 && TYPED_FIELDS.has(keys[0]) ? `${nodeId}:${keys[0]}` : null
+    pushHistory(coalesceKey)
     setNodes((prev) => prev.map((n) => (n.id === nodeId ? { ...n, ...patch } : n)))
   }
 
@@ -258,6 +336,7 @@ export default function App() {
           alert('파일 형식이 올바르지 않습니다')
           return
         }
+        pushHistory()
         setState({
           nodes: restoredNodes,
           period: parsed.period ?? defaultState().period,
@@ -278,6 +357,7 @@ export default function App() {
 
   function handleResetTree() {
     if (!window.confirm('계보도를 초기화할까요? 현재 구성이 모두 삭제됩니다.')) return
+    pushHistory()
     setState(defaultState())
     setSelectedId(null)
   }
@@ -318,11 +398,19 @@ export default function App() {
       {menuOpen && (
         <TopBar
           period={period}
-          onChangePeriod={(next) => setState((prev) => ({ ...prev, period: next }))}
+          onChangePeriod={(next) => {
+            pushHistory()
+            setState((prev) => ({ ...prev, period: next }))
+          }}
         />
       )}
 
-      <div ref={splitAreaRef} className="split-area flex min-h-0 flex-1 flex-col">
+      <div
+        ref={splitAreaRef}
+        className="split-area flex min-h-0 flex-1 flex-col"
+        // 가로 배치일 때 왼쪽 패널 너비 — index.css 의 미디어쿼리 안에서만 쓰인다
+        style={{ '--split-w': `${splitPctX}%` }}
+      >
         <OrgTreePanel
           style={{ height: `${splitPct}%` }}
           nodes={nodes}
@@ -335,6 +423,8 @@ export default function App() {
           onSaveTree={handleSaveTree}
           onLoadTree={() => loadInputRef.current?.click()}
           onResetTree={handleResetTree}
+          onUndo={handleUndo}
+          canUndo={history.length > 0}
           periodLabel={formatPeriod(period)}
           showIds={showOrgIds}
           onToggleShowIds={() => setShowOrgIds((on) => !on)}
@@ -351,6 +441,21 @@ export default function App() {
           title="누른 채 위아래로 끌면 화면 비율이 바뀝니다 (두 번 누르면 절반)"
         >
           <div className="h-1 w-10 rounded-full bg-slate-400" />
+        </div>
+
+        {/* 좌우 분할 기준선 — 가로 배치(PC·눕힌 화면)에서만 보인다. 보이고 숨기는 것은
+            index.css 의 미디어쿼리가 맡는다 (Tailwind 의 md: 가 아니라 — 배치의 단일 출처) */}
+        <div
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="두 계보도 너비 조절"
+          className="split-divider-v no-print w-2 flex-shrink-0 cursor-col-resize touch-none items-center justify-center border-x border-slate-300 bg-slate-100 active:bg-slate-200"
+          onMouseDown={startSplitDragX}
+          onTouchStart={startSplitDragX}
+          onDoubleClick={() => setSplitPctX(50)}
+          title="누른 채 좌우로 끌면 화면 비율이 바뀝니다 (두 번 누르면 절반)"
+        >
+          <div className="h-10 w-1 rounded-full bg-slate-400" />
         </div>
 
         <EffectiveTreePanel

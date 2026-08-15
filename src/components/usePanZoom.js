@@ -5,13 +5,15 @@ const ZOOM_MIN = 0.3
 const ZOOM_MAX = 3
 // 이만큼 움직이면 '누른 것' 이 아니라 '끈 것' 으로 본다 — 카드를 눌러도 팬이 되게 하려면 필요하다
 const DRAG_SLOP = 6
+// 계보도 바깥 빈 바탕이 이보다 많이 보이지 않게 막는다 (무한 스크롤 방지)
+const PAN_EDGE_GAP = 30
 
 /**
  * 빈 바탕 드래그 팬 + 휠/핀치 줌.
  * translate + scale 을 한 레이어에 걸고 transformOrigin 을 좌상단으로 두어
  * 줌 수식(newPan = m - (m - oldPan) * ratio)이 단순해진다.
  */
-export function usePanZoom() {
+export function usePanZoom(contentKey) {
   const containerRef = useRef(null)
   const layerRef = useRef(null)
   const stateRef = useRef({
@@ -28,11 +30,78 @@ export function usePanZoom() {
     pinchStartPanX: 0, pinchStartPanY: 0,
   })
 
-  // 루트('나')는 항상 화면 맨 위에 붙는다 — 위쪽 빈 공간을 만들며 내려갈 수 없고,
-  // 아래(하위 계보도) 방향으로만 이동한다. panY > 0 이 곧 '나 위쪽 여백'이다.
+  /**
+   * 계보도가 실제로 차지하는 사각형 (팬 레이어 안의 좌표, 줌 1 기준).
+   *
+   * 레이어 자체를 재지 않고 회원 덩어리(`[data-tree-unit]`)들의 화면 사각형을 합쳐 쓴다 —
+   * 레이어는 빈 레인(자식 없는 자리의 폭)까지 품고 있어 실제 카드보다 훨씬 넓다.
+   * 안쪽에 걸린 `scale-[0.85] md:scale-100` 도 화면 사각형에는 이미 녹아 있다.
+   *
+   * 팬 도중에는 변하지 않으므로 제스처 시작·계보도 변경·칸 크기 변경 때만 다시 잰다
+   * (움직일 때마다 재면 레이아웃이 매번 강제돼 폰에서 끊긴다).
+   */
+  const contentBoxRef = useRef(null)
+
+  function measureContent() {
+    const container = containerRef.current
+    const layer = layerRef.current
+    if (!container || !layer) return
+    const units = layer.querySelectorAll('[data-tree-unit]')
+    if (!units.length) return
+
+    let left = Infinity, right = -Infinity, top = Infinity, bottom = -Infinity
+    for (const u of units) {
+      const r = u.getBoundingClientRect()
+      if (r.left < left) left = r.left
+      if (r.right > right) right = r.right
+      if (r.top < top) top = r.top
+      if (r.bottom > bottom) bottom = r.bottom
+    }
+
+    // 화면 좌표 → 레이어 좌표: p = (화면값 − 레이어원점) / zoom
+    const cRect = container.getBoundingClientRect()
+    const cs = getComputedStyle(container)
+    const padL = parseFloat(cs.paddingLeft) || 0
+    const padT = parseFloat(cs.paddingTop) || 0
+    const s = stateRef.current
+    const z = s.zoom || 1
+    const originX = cRect.left + padL + s.panX
+    const originY = cRect.top + padT + s.panY
+    contentBoxRef.current = {
+      left: (left - originX) / z,
+      right: (right - originX) / z,
+      top: (top - originY) / z,
+      bottom: (bottom - originY) / z,
+    }
+  }
+
+  /**
+   * 빈 바탕이 PAN_EDGE_GAP 넘게 보이지 않도록 네 방향 모두 가둔다.
+   * 계보도가 보는 칸보다 작아 두 조건이 부딪히는 축은 '왼쪽/위 끝을 보여주는 쪽'으로 붙인다.
+   * 아직 재기 전(첫 그림)에는 예전 규칙 — 루트를 화면 맨 위에 붙여 둔다 — 만 적용한다.
+   */
   function clampPan() {
     const s = stateRef.current
-    if (s.panY > 0) s.panY = 0
+    const container = containerRef.current
+    const box = contentBoxRef.current
+    if (!container || !box) {
+      if (s.panY > 0) s.panY = 0
+      return
+    }
+
+    const cs = getComputedStyle(container)
+    const padL = parseFloat(cs.paddingLeft) || 0
+    const padT = parseFloat(cs.paddingTop) || 0
+    const z = s.zoom
+
+    // 화면상 내용 왼쪽 끝 = padL + panX + box.left*z → 이 값이 GAP 을 넘지 않아야 한다
+    const maxPanX = PAN_EDGE_GAP - padL - box.left * z
+    const minPanX = container.clientWidth - PAN_EDGE_GAP - padL - box.right * z
+    s.panX = minPanX > maxPanX ? maxPanX : Math.min(maxPanX, Math.max(minPanX, s.panX))
+
+    const maxPanY = PAN_EDGE_GAP - padT - box.top * z
+    const minPanY = container.clientHeight - PAN_EDGE_GAP - padT - box.bottom * z
+    s.panY = minPanY > maxPanY ? maxPanY : Math.min(maxPanY, Math.max(minPanY, s.panY))
   }
 
   function apply() {
@@ -88,6 +157,7 @@ export function usePanZoom() {
 
   function panStart(clientX, clientY) {
     const s = stateRef.current
+    measureContent()
     s.active = true
     s.dragged = false
     s.startX = clientX
@@ -133,8 +203,32 @@ export function usePanZoom() {
     s.panX = 0
     s.panY = 0
     s.zoom = 1
+    measureContent()
     apply()
   }
+
+  /**
+   * 계보도 모양이나 보는 칸 크기가 바뀌면 다시 재고 팬 범위도 다시 가둔다.
+   * ResizeObserver 가 창 크기 변화와 **패널 비율 조절**(기준선 끌기)을 함께 잡아 준다.
+   */
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+    measureContent()
+    apply()
+    const ro = new ResizeObserver(() => {
+      measureContent()
+      apply()
+    })
+    ro.observe(container)
+    return () => ro.disconnect()
+  }, [])
+
+  // 회원이 늘고 줄면 계보도 크기가 달라진다 (패널이 nodes 를 넘겨준다)
+  useEffect(() => {
+    measureContent()
+    apply()
+  }, [contentKey])
 
   useEffect(() => {
     function onMove(e) {
@@ -172,6 +266,7 @@ export function usePanZoom() {
     function onWheel(e) {
       e.preventDefault()
       const s = stateRef.current
+      measureContent()
       if (e.ctrlKey || e.metaKey) {
         const { x, y } = pointInContainer(e.clientX, e.clientY)
         zoomAtPoint(x, y, s.zoom * Math.exp(-e.deltaY * 0.0015))
@@ -197,6 +292,7 @@ export function usePanZoom() {
       if (e.touches.length === 2) {
         const [a, b] = [e.touches[0], e.touches[1]]
         const { x, y } = pointInContainer((a.clientX + b.clientX) / 2, (a.clientY + b.clientY) / 2)
+        measureContent()
         s.pinchActive = true
         s.pinchStartDist = dist(a, b)
         s.pinchStartZoom = s.zoom

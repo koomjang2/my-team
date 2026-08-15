@@ -38,7 +38,7 @@ export default function TreePanelHeader({
               onChange={onToggleShowIds}
               className="h-3 w-3 accent-sky-600"
             />
-            ID 보이기
+            ID
           </label>
         )}
       </div>

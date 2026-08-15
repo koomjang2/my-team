@@ -59,7 +59,8 @@ function EffectiveNode({ nodeId, nodes, gapMap, selectedId, onSelect, showIds })
   const row = layout.childRow(nodeId, nodes)
 
   return (
-    <div className="flex flex-col items-center" style={{ minWidth: row.hasChildren ? row.childRowWidth : CARD_WIDTH }}>
+    // data-tree-unit: 팬 범위를 가둘 때 재는 덩어리 (usePanZoom.js)
+    <div data-tree-unit="true" className="flex flex-col items-center" style={{ minWidth: row.hasChildren ? row.childRowWidth : CARD_WIDTH }}>
       {/* 좌우 갈래가 둘 다 살아있어 접을 수 없는 '없음' 자리 — 카드는 감추고 선만 지나간다 */}
       {node.passthrough ? (
         <div className="h-4 w-px bg-gray-400" aria-hidden="true" />
@@ -100,7 +101,7 @@ export default function EffectiveTreePanel({
   periodLabel, summaryOpen, onToggleSummary,
   showIds, onToggleShowIds,
 }) {
-  const { containerRef, layerRef, onMouseDown, resetView } = usePanZoom()
+  const { containerRef, layerRef, onMouseDown, resetView } = usePanZoom(nodes)
   const panelRef = useRef(null)
   const innerRef = useRef(null)
   const { saveImage, print } = usePanelCapture({
