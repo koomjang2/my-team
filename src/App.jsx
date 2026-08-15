@@ -57,6 +57,16 @@ function loadInitialState() {
   }
 }
 
+/**
+ * 저장 파일이름 맨 앞에 붙는 최상단 회원(루트, '나') 이름.
+ * 아직 이름을 안 적었으면 카드와 같은 말 '이름 없음' 을 쓰고, 파일이름에 못 쓰는
+ * 문자(윈도우 기준 \/:*?"<>|)는 지운다 — 회원 이름은 자유 입력이라 그대로 쓸 수 없다.
+ */
+function rootNameForFile(rootNode) {
+  const raw = (rootNode?.name ?? '').trim() || '이름 없음'
+  return raw.replace(/[\\/:*?"<>|]/g, '')
+}
+
 /** 인쇄·그림에 찍히는 한 줄짜리 기간 표기 — 화면 선택지(TopBar)와 같은 말로 맞춘다 */
 function formatPeriod(period) {
   if (!period) return ''
@@ -378,8 +388,8 @@ export default function App() {
 
   /**
    * 계보도를 JSON 으로 저장한다. 두 패널이 이 함수를 공용으로 쓰지만 파일이름은
-   * 그림 저장과 같은 규칙 — 어느 패널에서 눌렀는지에 따라 `팀-` / `팀목표-` 접두어만 다르다.
-   * (계보도 데이터 자체는 한 벌이라 어느 쪽에서 저장해도 내용은 같다)
+   * `{최상단 회원 이름}-{팀|팀목표}-{연-월-반기}.json` 꼴이다 — 어느 패널에서 눌렀는지에
+   * 따라 접두어만 다르다. (계보도 데이터 자체는 한 벌이라 어느 쪽에서 저장해도 내용은 같다)
    */
   function handleSaveTree(prefix = '팀') {
     try {
@@ -395,7 +405,7 @@ export default function App() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${prefix}-${periodStamp(period)}.json`
+      a.download = `${rootNameForFile(me)}-${prefix}-${periodStamp(period)}.json`
       document.body.appendChild(a)
       a.click()
       a.remove()
