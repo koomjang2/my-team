@@ -66,3 +66,21 @@ export function useEditorHotkeys({ enabled = true, onClose, onPickRank, onAddLef
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [enabled])
 }
+
+/**
+ * 글자 칸에서 엔터를 치면 입력을 끝내고 커서를 뺀다.
+ *
+ * 커서가 칸에 남아 있으면 단축키를 잡지 않으므로(`isTypingTarget`), 이름을 다 치고
+ * 바로 ` 1~8 로 목표 직급을 고를 수가 없었다. 엔터가 그 사이를 끊어 준다.
+ * 편집창은 닫지 않는다 — 이어서 다른 칸을 고칠 수 있어야 한다.
+ *
+ * 한글 조합 중의 엔터는 조합을 확정하는 키다. 그때는 그냥 흘려보내고,
+ * 확정된 뒤 한 번 더 누른 엔터에서 커서가 빠진다.
+ * React 의 합성 이벤트에는 `isComposing` 이 없다 — 원본 이벤트에서 한 번 더 본다.
+ */
+export function commitOnEnter(e) {
+  if (e.key !== 'Enter') return
+  if (e.isComposing || e.nativeEvent?.isComposing || e.keyCode === 229) return
+  e.preventDefault()
+  e.currentTarget.blur()
+}

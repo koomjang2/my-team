@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { commitOnEnter } from './keyboard.js'
 
 /**
  * PV 입력칸 — 0 이 남아 방해하지 않는 숫자 입력.
@@ -6,6 +7,8 @@ import { useState } from 'react'
  * `<input type="number" value={0}>` 를 그냥 쓰면 터치해서 10 을 치면 `100` 또는
  * `010` 이 된다. 그래서 값이 0 일 때만 칸을 비워 두고, 다 지우고 빠져나가면
  * 다시 0 으로 되돌린다. 0 이 아닌 값은 손대지 않는다 — 이어서 고칠 수 있어야 한다.
+ *
+ * 엔터를 치면 커서가 빠진다 — 그래야 이어서 목표 직급 단축키를 쓸 수 있다.
  */
 export default function NumberField({ value, onChange, className = '', ...rest }) {
   const [draft, setDraft] = useState(null) // 편집 중일 때만 문자열을 들고 있는다
@@ -28,6 +31,7 @@ export default function NumberField({ value, onChange, className = '', ...rest }
         setDraft(null) // 빈 칸으로 두고 나가면 다시 0 이 보인다
         onChange(Number(value) || 0)
       }}
+      onKeyDown={commitOnEnter}
       {...rest}
     />
   )

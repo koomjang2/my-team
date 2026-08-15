@@ -4,7 +4,7 @@ import {
   RANK_SHORT_LABEL, RANK_NONE, hasMemberPv,
 } from '../engine/ranks.js'
 import NumberField from './NumberField.jsx'
-import { useEditorHotkeys } from './keyboard.js'
+import { commitOnEnter, useEditorHotkeys } from './keyboard.js'
 
 /** 고르기 전에는 옅은 직급색, 고르면 같은 계열의 선명한 색 */
 function rankButtonClass(rank, selected) {
@@ -73,6 +73,7 @@ export default function NodeEditorPopover({
           className="mt-0.5 w-full rounded border px-1.5 py-1 outline-none focus:border-sky-400"
           value={node.name ?? ''}
           onChange={(e) => onUpdate({ name: e.target.value })}
+          onKeyDown={commitOnEnter}
           placeholder="이름"
         />
       </label>
@@ -83,6 +84,7 @@ export default function NodeEditorPopover({
           className="mt-0.5 w-full rounded border px-1.5 py-1 outline-none focus:border-sky-400"
           value={node.memberId ?? ''}
           onChange={(e) => onUpdate({ memberId: e.target.value })}
+          onKeyDown={commitOnEnter}
           placeholder="회원번호"
         />
       </label>
