@@ -287,12 +287,16 @@ export default function App() {
    * (시간이 아니라 '무엇을 고치는 중인가' 로 묶으므로 타이머 조정이 필요 없다)
    */
   const [history, setHistory] = useState([])
+  // 되돌린 것을 도로 밀어 놓을 자리 — '다시 실행' 이 여기서 꺼내 쓴다
+  const [future, setFuture] = useState([])
   const lastCoalesceKeyRef = useRef(null)
 
   function pushHistory(coalesceKey = null) {
     if (coalesceKey && lastCoalesceKeyRef.current === coalesceKey) return
     lastCoalesceKeyRef.current = coalesceKey
     setHistory((past) => [...past, state].slice(-HISTORY_LIMIT))
+    // 되돌린 뒤에 새로 손을 대면 앞길은 사라진다 — 갈라진 미래를 둘 다 들고 있을 수 없다
+    setFuture([])
   }
 
   /** 편집창을 닫으면 '이어 고치던 흐름' 이 끝난 것으로 본다 — 다시 열어 고치면 새 단계가 쌓인다 */
@@ -300,16 +304,30 @@ export default function App() {
     lastCoalesceKeyRef.current = null
   }
 
+  /**
+   * 쌓아 둔 상태 하나를 화면에 올린다 (되돌리기·다시 실행 공용).
+   * 그 상태에 없는 회원을 고르고 있었으면 선택을 푼다.
+   */
+  function restoreSnapshot(snapshot) {
+    setState(snapshot)
+    // 되돌리거나 다시 실행한 뒤에는 이어치던 흐름이 끊긴 것으로 본다 — 다음 편집은 새 단계
+    lastCoalesceKeyRef.current = null
+    if (selectedId && !snapshot.nodes.some((n) => n.id === selectedId)) setSelectedId(null)
+  }
+
   function handleUndo() {
-    setHistory((past) => {
-      if (!past.length) return past
-      const prev = past[past.length - 1]
-      setState(prev)
-      // 되돌린 뒤에는 이어치던 흐름이 끊긴 것으로 본다 — 다음 편집은 새 단계가 된다
-      lastCoalesceKeyRef.current = null
-      if (selectedId && !prev.nodes.some((n) => n.id === selectedId)) setSelectedId(null)
-      return past.slice(0, -1)
-    })
+    if (!history.length) return
+    // 지금 상태는 '앞길' 로 넘겨 둔다 — 다시 실행이 이걸 도로 꺼낸다
+    setFuture((ahead) => [...ahead, state].slice(-HISTORY_LIMIT))
+    setHistory((past) => past.slice(0, -1))
+    restoreSnapshot(history[history.length - 1])
+  }
+
+  function handleRedo() {
+    if (!future.length) return
+    setHistory((past) => [...past, state].slice(-HISTORY_LIMIT))
+    setFuture((ahead) => ahead.slice(0, -1))
+    restoreSnapshot(future[future.length - 1])
   }
 
   /**
@@ -589,6 +607,8 @@ export default function App() {
           onResetTree={handleResetTree}
           onUndo={handleUndo}
           canUndo={history.length > 0}
+          onRedo={handleRedo}
+          canRedo={future.length > 0}
           onEndEdit={handleEndEdit}
           periodLabel={formatPeriod(period)}
           imageName={`팀-${periodStamp(period)}.jpg`}

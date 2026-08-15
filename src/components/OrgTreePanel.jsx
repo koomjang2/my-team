@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { ChevronDown, Plus, Undo2 } from 'lucide-react'
+import { ChevronDown, Plus, Redo2, Undo2 } from 'lucide-react'
 import { RANK_COLORS, RANK_NONE, RANK_RULES, hasMemberPv, isNonRank, rankDisplay } from '../engine/ranks.js'
 import { makeLayout } from './treeLayout.js'
 import TreeConnectors from './TreeConnectors.jsx'
@@ -30,6 +30,28 @@ function addLabel(side, hotkey, occupant) {
   if (!occupant) return `${side} 하위 추가 (${hotkey})`
   if (occupant.vacated) return `${side} - 빈 자리 채우기 (${hotkey})`
   return `${side} - 기존 회원 위에 끼워 넣기 (${hotkey})`
+}
+
+/**
+ * 되돌리기 · 다시 실행 버튼 — 둘은 생김새가 같아야 하므로 한 곳에서 찍어낸다.
+ * `data-no-pan` 은 이 버튼에서 시작한 드래그가 화면을 끌지 않게 한다
+ * (손 모양 커서도 그래서 안 뜬다).
+ */
+function HistoryButton({ onClick, enabled, title, icon, label }) {
+  return (
+    <button
+      data-no-pan
+      onClick={onClick}
+      disabled={!enabled}
+      className={`flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium shadow-md backdrop-blur transition-colors
+        ${enabled
+          ? 'cursor-pointer border-slate-300 bg-white/90 text-slate-700 hover:bg-white hover:text-sky-700'
+          : 'cursor-not-allowed border-slate-200 bg-white/60 text-slate-300'}`}
+      title={title}
+    >
+      {icon} {label}
+    </button>
+  )
 }
 
 function NodeCard({
@@ -272,7 +294,7 @@ export default function OrgTreePanel({
   onAdd, onRemove, onUpdate,
   onSaveTree, onLoadTree, onResetTree, onImportSubtree,
   importSummary, onCloseImportSummary,
-  onUndo, canUndo, onEndEdit,
+  onUndo, canUndo, onRedo, canRedo, onEndEdit,
   periodLabel, imageName = '팀.jpg',
   showIds, onToggleShowIds,
   style,
@@ -349,23 +371,32 @@ export default function OrgTreePanel({
         className="tree-print-area org-tree-pan-area relative min-h-0 flex-1 overflow-hidden bg-slate-50/30 p-4 md:min-h-[340px]"
       >
         {/*
-          되돌리기 — 팬 레이어 **밖**에 절대 배치라 화면을 아무리 끌어도 제자리에 떠 있다.
+          되돌리기 · 다시 실행 — 팬 레이어 **밖**에 절대 배치라 화면을 아무리 끌어도 제자리다.
           카드가 hover 때 z-[500] 까지 올라오므로 그보다 위(z-[600])에 둔다.
-          `data-no-pan` 은 이 버튼에서 시작한 드래그가 화면을 끌지 않게 한다 (손 모양 커서도 그래서 안 뜬다).
+          두 버튼을 한 세로줄에 담아 둔 이유: 위에서 몇 px 떨어뜨릴지를 따로 세지 않아도
+          되기 때문이다 (되돌리기 높이가 바뀌어도 아래 버튼이 알아서 따라온다).
         */}
-        {onUndo && (
-          <button
-            data-no-pan
-            onClick={onUndo}
-            disabled={!canUndo}
-            className={`no-print absolute left-2 top-2 z-[600] flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-medium shadow-md backdrop-blur transition-colors
-              ${canUndo
-                ? 'cursor-pointer border-slate-300 bg-white/90 text-slate-700 hover:bg-white hover:text-sky-700'
-                : 'cursor-not-allowed border-slate-200 bg-white/60 text-slate-300'}`}
-            title={canUndo ? '방금 한 작업 되돌리기' : '되돌릴 작업이 없습니다'}
-          >
-            <Undo2 size={12} /> 되돌리기
-          </button>
+        {(onUndo || onRedo) && (
+          <div className="no-print absolute left-2 top-2 z-[600] flex flex-col items-start gap-1">
+            {onUndo && (
+              <HistoryButton
+                onClick={onUndo}
+                enabled={canUndo}
+                title={canUndo ? '방금 한 작업 되돌리기' : '되돌릴 작업이 없습니다'}
+                icon={<Undo2 size={12} />}
+                label="되돌리기"
+              />
+            )}
+            {onRedo && (
+              <HistoryButton
+                onClick={onRedo}
+                enabled={canRedo}
+                title={canRedo ? '되돌린 작업 다시 실행' : '다시 실행할 작업이 없습니다'}
+                icon={<Redo2 size={12} />}
+                label="다시 실행"
+              />
+            )}
+          </div>
         )}
 
         <div ref={layerRef} className="will-change-transform" style={{ transform: 'translate(0px, 0px) scale(1)', transformOrigin: '0 0' }}>
