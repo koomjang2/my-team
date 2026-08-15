@@ -13,7 +13,10 @@ import { usePanelCapture } from './usePanelCapture.js'
 import { useEditorHotkeys } from './keyboard.js'
 
 const CARD_WIDTH = 104
-const layout = makeLayout({ cardWidth: CARD_WIDTH, emptyLaneWidth: 130, branchGap: 48 })
+// 빈 레인 폭과 좌/우 사이 틈 — 이 둘이 계보도의 가로 폭을 정한다.
+// 좁힐수록 한 화면에 더 들어오지만 카드가 붙어 보인다. 지금 값이면 잎 카드끼리
+// 최소 26px 이 뜬다 (틈 22 + 레인 여유 4). 회원이 늘면 하위 폭만큼 자연히 벌어진다.
+const layout = makeLayout({ cardWidth: CARD_WIDTH, emptyLaneWidth: 108, branchGap: 22 })
 
 /** 카드 안 '명목' / '목표' 뱃지 — 직급 이름 **왼쪽**에 붙는다 */
 const BADGE = 'shrink-0 rounded px-1 text-[10px] font-medium leading-tight'
