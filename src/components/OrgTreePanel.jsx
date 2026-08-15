@@ -21,10 +21,20 @@ const layout = makeLayout({ cardWidth: CARD_WIDTH, emptyLaneWidth: 108, branchGa
 /** 카드 안 '명목' / '목표' 뱃지 — 직급 이름 **왼쪽**에 붙는다 */
 const BADGE = 'shrink-0 rounded px-1 text-[10px] font-medium leading-tight'
 
+/**
+ * [+좌]/[+우] 말풍선 — 그 자리가 어떤 상태냐에 따라 하는 일이 다르다.
+ *   비어 있음 → 그냥 붙인다 / 삭제로 비워 둔 자리 → 그 자리를 채운다 / 사람이 있음 → 위에 끼워 넣는다
+ */
+function addLabel(side, hotkey, occupant) {
+  if (!occupant) return `${side} 하위 추가 (${hotkey})`
+  if (occupant.vacated) return `${side} - 빈 자리 채우기 (${hotkey})`
+  return `${side} - 기존 회원 위에 끼워 넣기 (${hotkey})`
+}
+
 function NodeCard({
   node, effRank, gap, isSelected, isEditing, isPickingRank, showIds,
   onOpenEditor, onOpenRankPicker, onPickRank, onClosePopups,
-  onAddLeft, onAddRight, onRemove, hasLeft, hasRight,
+  onAddLeft, onAddRight, onRemove, leftLabel, rightLabel,
 }) {
   // 왼쪽 '나의 계보도' 카드 색은 **명목 직급** 을 따른다 (오른쪽 '목표 계보도' 는 목표 직급)
   const colorClass = RANK_COLORS[node.nominalRank ?? RANK_NONE] ?? 'bg-gray-100 text-gray-700 border-gray-300'
@@ -137,14 +147,14 @@ function NodeCard({
         <button
           onClick={(e) => { e.stopPropagation(); onAddLeft() }}
           className="flex cursor-pointer items-center gap-0.5 rounded border border-blue-300 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 transition-colors hover:bg-blue-100"
-          title={hasLeft ? '좌 - 기존 회원 위에 끼워 넣기 (Q)' : '좌 하위 추가 (Q)'}
+          title={leftLabel}
         >
           <Plus size={8} /><span>좌</span>
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); onAddRight() }}
           className="flex cursor-pointer items-center gap-0.5 rounded border border-orange-300 bg-orange-50 px-1.5 py-0.5 text-[10px] font-medium text-orange-600 transition-colors hover:bg-orange-100"
-          title={hasRight ? '우 - 기존 회원 위에 끼워 넣기 (W)' : '우 하위 추가 (W)'}
+          title={rightLabel}
         >
           <Plus size={8} /><span>우</span>
         </button>
@@ -181,8 +191,8 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, pickingRankId,
           isEditing={editingId === node.id}
           isPickingRank={pickingRankId === node.id}
           showIds={showIds}
-          hasLeft={row.hasLeft}
-          hasRight={row.hasRight}
+          leftLabel={addLabel('좌', 'Q', row.left)}
+          rightLabel={addLabel('우', 'W', row.right)}
           onOpenEditor={() => handlers.onOpenEditor(node.id)}
           onOpenRankPicker={() => handlers.onOpenRankPicker(node.id)}
           onPickRank={(r) => handlers.onPickRank(node.id, r)}
