@@ -72,7 +72,13 @@ function EffectiveNode({ nodeId, nodes, gapMap, selectedId, onSelect, showIds })
 
   return (
     // data-tree-unit: 팬 범위를 가둘 때 재는 덩어리 (usePanZoom.js)
-    <div data-tree-unit="true" className="flex flex-col items-center" style={{ minWidth: row.hasChildren ? row.childRowWidth : CARD_WIDTH }}>
+    // data-tree-root: '나' 버튼이 찾아가는 최상단 회원 — 이진 트리라 레이어 가운데에 있다
+    <div
+      data-tree-unit="true"
+      data-tree-root={node.parentId ? undefined : 'true'}
+      className="flex flex-col items-center"
+      style={{ minWidth: row.hasChildren ? row.childRowWidth : CARD_WIDTH }}
+    >
       {/* 좌우 갈래가 둘 다 살아있어 접을 수 없는 '없음' 자리 — 카드는 감추고 선만 지나간다 */}
       {node.passthrough ? (
         <div className="h-4 w-px bg-gray-400" aria-hidden="true" />

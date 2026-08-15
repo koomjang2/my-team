@@ -3,7 +3,6 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import OrgTreePanel from './components/OrgTreePanel.jsx'
 import EffectiveTreePanel from './components/EffectiveTreePanel.jsx'
 import TopBar from './components/TopBar.jsx'
-import ImportSummaryBar from './components/ImportSummaryBar.jsx'
 import { computeEffectiveRanks, analyzeGap } from './engine/rankEngine.js'
 import { collapseVacated, collectDescendants, graftSubtree, validateLineageFile } from './engine/subtreeImport.js'
 import { diffSubtree } from './engine/subtreeDiff.js'
@@ -469,13 +468,13 @@ export default function App() {
       try {
         parsed = JSON.parse(String(reader.result ?? '{}'))
       } catch {
-        setImportSummary({ error: '파일을 읽을 수 없습니다 — JSON 형식이 아닙니다.' })
+        setImportSummary({ nodeId: targetId, error: '파일을 읽을 수 없습니다 — JSON 형식이 아닙니다.' })
         return
       }
 
       const checked = validateLineageFile(parsed)
       if (!checked.ok) {
-        setImportSummary({ error: checked.error })
+        setImportSummary({ nodeId: targetId, error: checked.error })
         return
       }
 
@@ -501,9 +500,9 @@ export default function App() {
       pushHistory()
       const after = graftSubtree(before, targetId, checked.nodes, makeId)
       setNodes(after)
-      setImportSummary({ name: fileName, diff: diffSubtree(before, after, targetId) })
+      setImportSummary({ nodeId: targetId, name: fileName, diff: diffSubtree(before, after, targetId) })
     }
-    reader.onerror = () => setImportSummary({ error: '파일 읽기에 실패했습니다.' })
+    reader.onerror = () => setImportSummary({ nodeId: targetId, error: '파일 읽기에 실패했습니다.' })
     reader.readAsText(file, 'utf-8')
   }
 
@@ -533,7 +532,6 @@ export default function App() {
         onChange={handleImportFile}
       />
 
-      <ImportSummaryBar summary={importSummary} onClose={() => setImportSummary(null)} />
 
       <header className="no-print flex flex-shrink-0 items-center gap-2 border-b bg-white px-3 py-2 shadow-sm">
         <h1 className="flex min-w-0 flex-1 items-center gap-2 leading-tight">
@@ -586,6 +584,8 @@ export default function App() {
           onSaveTree={() => handleSaveTree('팀')}
           onLoadTree={() => loadInputRef.current?.click()}
           onImportSubtree={handleImportSubtree}
+          importSummary={importSummary}
+          onCloseImportSummary={() => setImportSummary(null)}
           onResetTree={handleResetTree}
           onUndo={handleUndo}
           canUndo={history.length > 0}

@@ -19,12 +19,15 @@ import { rankDisplay } from './ranks.js'
  * (`looksLikeSamePerson`). 한쪽이 비어 있으면 채워 넣은 것으로 보고 짝짓는다.
  */
 
-/** 스낵바에 견줘 보여줄 칸들 — 카드에 적히는 것과 같은 순서 */
+/**
+ * 스낵바에 견줘 보여줄 칸들 — 카드에 적히는 것과 같은 순서.
+ * `kind: 'rank'` 는 알림에서 직급 색 그대로 된 알약으로 그린다 — 한눈에 알아보라고.
+ */
 const COMPARED = [
   { key: 'name', label: '이름' },
   { key: 'memberId', label: '회원 ID' },
-  { key: 'nominalRank', label: '명목 직급', show: rankDisplay },
-  { key: 'rank', label: '목표 직급', show: rankDisplay },
+  { key: 'nominalRank', label: '명목 직급', kind: 'rank', show: rankDisplay },
+  { key: 'rank', label: '목표 직급', kind: 'rank', show: rankDisplay },
   { key: 'memberPvMan', label: '회원PV', show: (v) => `${Number(v) || 0}만` },
   { key: 'consumerMan', label: '소비 PV', show: (v) => `${Number(v) || 0}만` },
   // 메모는 덮어쓰지 않고 합치므로(`mergeMemo`) '있음 → 있음' 은 아무 말도 안 해 준다.
@@ -143,7 +146,11 @@ export function diffSubtree(before, after, junctionId) {
         continue
       }
       const show = f.show ?? ((v) => (String(v).trim() ? String(v) : '없음'))
-      fields.push({ label: f.label, from: show(a), to: show(b) })
+      // 직급은 원래 값도 함께 넘긴다 — 알림이 직급 색을 칠하는 데 쓴다
+      fields.push({
+        label: f.label, from: show(a), to: show(b),
+        ...(f.kind === 'rank' ? { kind: 'rank', fromRank: String(a), toRank: String(b) } : {}),
+      })
     }
     const moved = o.path !== n.path
     if (!fields.length && !moved) continue
@@ -159,12 +166,12 @@ export function diffSubtree(before, after, junctionId) {
   // 자리 순서대로 보이는 편이 읽기 좋다 (얕은 곳 먼저, 같은 깊이면 좌 먼저)
   const byPath = (a, b) => a.path.length - b.path.length || a.path.localeCompare(b.path)
 
-  const added = [...newLeft].sort(byPath).map((e) => ({
-    label: entryLabel(e), where: pathLabel(e.path), rank: rankDisplay(e.node.rank),
-  }))
-  const removed = [...oldLeft].sort(byPath).map((e) => ({
-    label: entryLabel(e), where: pathLabel(e.path), rank: rankDisplay(e.node.rank),
-  }))
+  const entry = (e) => ({
+    label: entryLabel(e), where: pathLabel(e.path),
+    rank: rankDisplay(e.node.rank), rankKey: e.node.rank,
+  })
+  const added = [...newLeft].sort(byPath).map(entry)
+  const removed = [...oldLeft].sort(byPath).map(entry)
 
   return { changed, added, removed }
 }

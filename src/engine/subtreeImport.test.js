@@ -137,8 +137,9 @@ check('삭제 = 나1 하나', d.removed.map((x) => x.label), ['나1'])
 check('변경 = 접합점 A 하나', d.changed.map((x) => x.label), ['A'])
 check('A 에서 달라진 칸',
   d.changed[0].fields.map((f) => f.label), ['회원 ID', '명목 직급', '목표 직급', '회원PV', '메모'])
-check('목표 직급은 SM → DM',
-  d.changed[0].fields.find((f) => f.label === '목표 직급'), { label: '목표 직급', from: 'SM', to: 'DM' })
+check('목표 직급은 SM → DM (직급 색을 칠하도록 원값도 함께)',
+  d.changed[0].fields.find((f) => f.label === '목표 직급'),
+  { label: '목표 직급', from: 'SM', to: 'DM', kind: 'rank', fromRank: 'SM', toRank: 'DM' })
 // 메모는 덮어쓰는 것이 아니라 합치는 것이라 '있음 → 있음' 대신 무슨 일인지 한 마디로 적는다
 check('메모는 한 마디로 적는다',
   d.changed[0].fields.find((f) => f.label === '메모'), { label: '메모', note: '합쳐짐' })

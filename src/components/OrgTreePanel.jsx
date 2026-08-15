@@ -4,6 +4,7 @@ import { RANK_COLORS, RANK_NONE, RANK_RULES, hasMemberPv, isNonRank, rankDisplay
 import { makeLayout } from './treeLayout.js'
 import TreeConnectors from './TreeConnectors.jsx'
 import NodeEditorPopover from './NodeEditorPopover.jsx'
+import ImportSummaryBar from './ImportSummaryBar.jsx'
 import RankQuickPicker from './RankQuickPicker.jsx'
 import CopyableId from './CopyableId.jsx'
 import TreePanelHeader from './TreePanelHeader.jsx'
@@ -174,7 +175,13 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, pickingRankId,
 
   return (
     // data-tree-unit: 팬 범위를 가둘 때 재는 덩어리 — 카드 + [좌][우] 버튼이 다 들어 있다 (usePanZoom.js)
-    <div data-tree-unit="true" className="flex flex-col items-center" style={{ minWidth: row.hasChildren ? row.childRowWidth : CARD_WIDTH }}>
+    // data-tree-root: '나' 버튼이 찾아가는 최상단 회원 — 이진 트리라 레이어 가운데에 있다
+    <div
+      data-tree-unit="true"
+      data-tree-root={isRoot ? 'true' : undefined}
+      className="flex flex-col items-center"
+      style={{ minWidth: row.hasChildren ? row.childRowWidth : CARD_WIDTH }}
+    >
       {/*
         삭제로 비워 둔 자리 — 카드 없이 선만 지나간다. 하위의 좌/우를 지키려고 남긴
         자리라 고칠 것도, 하위를 더 붙일 자리도 없다(좌·우가 이미 차 있다).
@@ -212,6 +219,16 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, pickingRankId,
           onAddRight={addRight}
           onImportSubtree={() => handlers.onImportSubtree(node.id)}
         />
+      )}
+
+      {/* 이식 결과 — 갈아 끼운 그 회원 카드 바로 밑에 뜬다 (화면 아래에 두면 계보도에 가렸다) */}
+      {handlers.importSummary?.nodeId === node.id && (
+        <div className="relative w-0">
+          <ImportSummaryBar
+            summary={handlers.importSummary}
+            onClose={handlers.onCloseImportSummary}
+          />
+        </div>
       )}
 
       {row.hasChildren && (
@@ -254,6 +271,7 @@ export default function OrgTreePanel({
   nodes, effRankMap, gapMap, selectedId,
   onAdd, onRemove, onUpdate,
   onSaveTree, onLoadTree, onResetTree, onImportSubtree,
+  importSummary, onCloseImportSummary,
   onUndo, canUndo, onEndEdit,
   periodLabel, imageName = '팀.jpg',
   showIds, onToggleShowIds,
@@ -271,6 +289,8 @@ export default function OrgTreePanel({
   const roots = nodes.filter((n) => !n.parentId)
 
   const handlers = {
+    importSummary,
+    onCloseImportSummary,
     onAdd,
     onRemove,
     onUpdate,

@@ -208,12 +208,51 @@ export function usePanZoom(contentKey) {
     e.preventDefault()
   }
 
+  /**
+   * '나' 버튼 — 최상단 회원을 화면 **맨 위 가운데**로 데려온다.
+   *
+   * 재는 것을 **먼저** 해야 한다. `measureContent()` 는 화면 사각형에서 레이어 좌표를
+   * 되계산하는데 그 원점에 `s.panX/panY/zoom` 을 쓴다. 팬 값을 먼저 0 으로 만들면
+   * DOM 에는 아직 옛 변형이 걸려 있어 원점이 어긋난 사각형이 박히고,
+   * 그 값으로 가두니 엉뚱한 곳에 멈췄다. **이 순서를 뒤집으면 다시 깨진다.**
+   *
+   * 그리고 팬을 0 으로 두는 것만으로는 최상단 회원이 보이지 않는다 — 계보도는 이진
+   * 트리라 루트가 레이어 **가운데**에 있기 때문이다. 그래서 루트 카드를 직접 찾아
+   * (`[data-tree-root]`) 그 자리를 기준으로 팬을 잡는다.
+   */
   function resetView() {
     const s = stateRef.current
-    s.panX = 0
-    s.panY = 0
+    const container = containerRef.current
+    const layer = layerRef.current
+    measureContent() // ← 손대기 전에. 화면 변형과 stateRef 가 아직 맞을 때만 되계산이 옳다
+
+    // `[data-tree-root]` 덩어리는 하위까지 다 품고 있다 — 그 안의 **첫 카드**가 루트 자신이다.
+    // (루트가 '없음' 이라 카드가 없는 화면도 있어 그때는 덩어리째 쓴다)
+    const rootUnit = layer?.querySelector('[data-tree-root]')
+    const root = rootUnit?.querySelector('[data-tree-node]') ?? rootUnit
+    if (!container || !root) {
+      s.panX = 0
+      s.panY = 0
+      s.zoom = 1
+      apply()
+      return
+    }
+
+    // 루트 카드를 레이어 좌표(줌 1 기준)로 옮긴다 — measureContent 와 같은 셈법이다
+    const cRect = container.getBoundingClientRect()
+    const cs = getComputedStyle(container)
+    const padL = parseFloat(cs.paddingLeft) || 0
+    const padT = parseFloat(cs.paddingTop) || 0
+    const z = s.zoom || 1
+    const r = root.getBoundingClientRect()
+    const rootLeft = (r.left - (cRect.left + padL + s.panX)) / z
+    const rootRight = (r.right - (cRect.left + padL + s.panX)) / z
+    const rootTop = (r.top - (cRect.top + padT + s.panY)) / z
+
+    // 줌 1 로 되돌리므로 레이어 좌표가 곧 화면 거리다
     s.zoom = 1
-    measureContent()
+    s.panX = container.clientWidth / 2 - padL - (rootLeft + rootRight) / 2
+    s.panY = PAN_EDGE_GAP - padT - rootTop
     apply()
   }
 
@@ -277,6 +316,9 @@ export function usePanZoom(contentKey) {
     const container = containerRef.current
     if (!container) return
     function onWheel(e) {
+      // 팬 레이어 위에 떠 있는 제 나름의 스크롤 칸(이식 결과 알림 등)에서는 손대지 않는다 —
+      // 여기서 preventDefault 를 하면 목록이 안 굴러가고 계보도가 대신 움직인다
+      if (e.target?.closest?.('[data-no-pan]')) return
       e.preventDefault()
       const s = stateRef.current
       measureContent()
