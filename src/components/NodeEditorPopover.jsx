@@ -29,7 +29,7 @@ const RANK_BTN = 'rounded border px-1 py-1 text-[10px] font-bold leading-tight t
  * 단축키는 커서가 글자 칸에 없을 때만 듣는다 (esc 만 예외) — `keyboard.js` 참고.
  */
 export default function NodeEditorPopover({
-  node, onUpdate, onClose, onAddLeft, onAddRight, canAddLeft, canAddRight,
+  node, onUpdate, onClose, onAddLeft, onAddRight,
 }) {
   const isConsumer = node.rank === 'CSM'
   const isNone = node.rank === RANK_NONE
@@ -42,8 +42,9 @@ export default function NodeEditorPopover({
   useEditorHotkeys({
     onClose,
     onPickRank: (r) => onUpdate({ rank: r }),
-    onAddLeft: () => canAddLeft && onAddLeft?.(),
-    onAddRight: () => canAddRight && onAddRight?.(),
+    // 자리가 차 있어도 막지 않는다 — 그때는 기존 회원 위에 끼워 넣는다
+    onAddLeft: () => onAddLeft?.(),
+    onAddRight: () => onAddRight?.(),
   })
 
   function pickNominal(r) {

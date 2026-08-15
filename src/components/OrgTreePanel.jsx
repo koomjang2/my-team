@@ -21,7 +21,7 @@ const BADGE = 'shrink-0 rounded px-1 text-[10px] font-medium leading-tight'
 function NodeCard({
   node, effRank, gap, isSelected, isEditing, isPickingRank, showIds,
   onOpenEditor, onOpenRankPicker, onPickRank, onClosePopups,
-  onAddLeft, onAddRight, onRemove, canAddLeft, canAddRight,
+  onAddLeft, onAddRight, onRemove, hasLeft, hasRight,
 }) {
   // 왼쪽 '나의 계보도' 카드 색은 **명목 직급** 을 따른다 (오른쪽 '목표 계보도' 는 목표 직급)
   const colorClass = RANK_COLORS[node.nominalRank ?? RANK_NONE] ?? 'bg-gray-100 text-gray-700 border-gray-300'
@@ -38,8 +38,9 @@ function NodeCard({
     enabled: isPickingRank && !isEditing,
     onClose: onClosePopups,
     onPickRank,
-    onAddLeft: () => canAddLeft && onAddLeft(),
-    onAddRight: () => canAddRight && onAddRight(),
+    // 자리가 차 있어도 막지 않는다 — 그때는 기존 회원 위에 끼워 넣는다
+    onAddLeft,
+    onAddRight,
   })
 
   return (
@@ -125,26 +126,22 @@ function NodeCard({
 
       </div>
 
+      {/*
+        자리가 차 있어도 누를 수 있다 — 그때는 원래 있던 회원 **바로 위**에 끼워 넣는다.
+        말풍선으로 '추가' 와 '끼워 넣기' 를 구분해 준다.
+      */}
       <div className="mt-1.5 flex gap-1">
         <button
-          disabled={!canAddLeft}
           onClick={(e) => { e.stopPropagation(); onAddLeft() }}
-          className={`flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[10px] font-medium transition-colors
-            ${!canAddLeft
-              ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400 opacity-20'
-              : 'cursor-pointer border-blue-300 bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
-          title={canAddLeft ? '좌 하위 추가' : '좌 자식 이미 존재'}
+          className="flex cursor-pointer items-center gap-0.5 rounded border border-blue-300 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 transition-colors hover:bg-blue-100"
+          title={hasLeft ? '좌 - 기존 회원 위에 끼워 넣기 (Q)' : '좌 하위 추가 (Q)'}
         >
           <Plus size={8} /><span>좌</span>
         </button>
         <button
-          disabled={!canAddRight}
           onClick={(e) => { e.stopPropagation(); onAddRight() }}
-          className={`flex items-center gap-0.5 rounded border px-1.5 py-0.5 text-[10px] font-medium transition-colors
-            ${!canAddRight
-              ? 'cursor-not-allowed border-gray-200 bg-gray-50 text-gray-400 opacity-20'
-              : 'cursor-pointer border-orange-300 bg-orange-50 text-orange-600 hover:bg-orange-100'}`}
-          title={canAddRight ? '우 하위 추가' : '우 자식 이미 존재'}
+          className="flex cursor-pointer items-center gap-0.5 rounded border border-orange-300 bg-orange-50 px-1.5 py-0.5 text-[10px] font-medium text-orange-600 transition-colors hover:bg-orange-100"
+          title={hasRight ? '우 - 기존 회원 위에 끼워 넣기 (W)' : '우 하위 추가 (W)'}
         >
           <Plus size={8} /><span>우</span>
         </button>
@@ -159,8 +156,6 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, pickingRankId,
 
   const row = layout.childRow(nodeId, nodes)
   const isRoot = !node.parentId
-  const canAddLeft = !row.hasLeft
-  const canAddRight = !row.hasRight
   const addLeft = () => handlers.onAdd(node.id, 'left')
   const addRight = () => handlers.onAdd(node.id, 'right')
 
@@ -174,8 +169,8 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, pickingRankId,
         isEditing={editingId === node.id}
         isPickingRank={pickingRankId === node.id}
         showIds={showIds}
-        canAddLeft={canAddLeft}
-        canAddRight={canAddRight}
+        hasLeft={row.hasLeft}
+        hasRight={row.hasRight}
         onOpenEditor={() => handlers.onOpenEditor(node.id)}
         onOpenRankPicker={() => handlers.onOpenRankPicker(node.id)}
         onPickRank={(r) => handlers.onPickRank(node.id, r)}
@@ -192,8 +187,6 @@ function TreeNode({ nodeId, nodes, effRankMap, gapMap, editingId, pickingRankId,
           onClose={handlers.onClosePopups}
           onAddLeft={addLeft}
           onAddRight={addRight}
-          canAddLeft={canAddLeft}
-          canAddRight={canAddRight}
         />
       )}
 

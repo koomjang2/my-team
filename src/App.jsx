@@ -192,8 +192,23 @@ export default function App() {
     setState((prev) => ({ ...prev, nodes: typeof updater === 'function' ? updater(prev.nodes) : updater }))
   }
 
+  /**
+   * 좌/우 하위 추가. 그 자리가 비어 있으면 그냥 붙이고,
+   * **이미 회원이 있으면 사이에 끼워 넣는다** — 새 회원이 부모 바로 아래로 들어가고
+   * 원래 있던 회원은 하위 계보도를 통째로 달고 같은 방향(좌/우)으로 한 칸 내려간다.
+   * 실제 후원 라인에 중간 스폰서를 하나 끼우는 것과 같은 모양이다.
+   */
   function handleAdd(parentId, side) {
-    setNodes((prev) => [...prev, makeNode({ parentId, side, rank: 'SM', name: '' })])
+    setNodes((prev) => {
+      const inserted = makeNode({ parentId, side, rank: 'SM', name: '' })
+      const occupant = prev.find((n) => n.parentId === parentId && n.side === side)
+      if (!occupant) return [...prev, inserted]
+      // 자리를 내준 회원만 부모를 바꾼다 — 그 아래는 손대지 않아도 함께 따라 내려간다
+      return [
+        ...prev.map((n) => (n.id === occupant.id ? { ...n, parentId: inserted.id } : n)),
+        inserted,
+      ]
+    })
   }
 
   function handleRemove(nodeId) {
