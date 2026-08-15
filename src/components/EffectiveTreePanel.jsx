@@ -99,14 +99,15 @@ function EffectiveNode({ nodeId, nodes, gapMap, selectedId, onSelect, showIds })
 export default function EffectiveTreePanel({
   nodes, effRankMap, gapMap, selectedId, onSelect, rootNode, style,
   onSaveTree, onLoadTree,
-  periodLabel, summaryOpen, onToggleSummary,
+  periodLabel, imageName = '팀목표.jpg',
+  summaryOpen, onToggleSummary,
   showIds, onToggleShowIds,
 }) {
   const { containerRef, layerRef, onMouseDown, resetView } = usePanZoom(nodes)
   const panelRef = useRef(null)
   const innerRef = useRef(null)
   const { saveImage, print } = usePanelCapture({
-    panelRef, containerRef, innerRef, imageName: '목표계보도.jpg',
+    panelRef, containerRef, innerRef, imageName,
   })
 
   // 달성할 직급을 아직 안 정한('없음') 회원은 실질 계보도에 띄우지 않는다.

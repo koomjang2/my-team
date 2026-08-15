@@ -244,7 +244,7 @@ export default function OrgTreePanel({
   onAdd, onRemove, onUpdate,
   onSaveTree, onLoadTree, onResetTree,
   onUndo, canUndo, onEndEdit,
-  periodLabel,
+  periodLabel, imageName = '팀.jpg',
   showIds, onToggleShowIds,
   style,
 }) {
@@ -255,7 +255,7 @@ export default function OrgTreePanel({
   const panelRef = useRef(null)
   const innerRef = useRef(null)
   const { saveImage, print } = usePanelCapture({
-    panelRef, containerRef, innerRef, imageName: '나의계보도.jpg',
+    panelRef, containerRef, innerRef, imageName,
   })
   const roots = nodes.filter((n) => !n.parentId)
 

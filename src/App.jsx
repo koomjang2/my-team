@@ -65,6 +65,17 @@ function formatPeriod(period) {
 }
 
 /**
+ * 저장 파일 이름에 쓰는 '연-월-반기' 조각. 예: `2026-08-상반기`
+ * PV 최적화 시뮬레이터(atomy-simul)의 `periodStamp` 와 같은 꼴로 맞춰 둔다 —
+ * 두 앱에서 뽑은 파일이 한 폴더에 섞여도 같은 보름끼리 나란히 정렬된다.
+ */
+function periodStamp(period) {
+  if (!period) return ''
+  const half = period.half === 'first' ? '상반기' : '하반기'
+  return `${period.year}-${String(period.month).padStart(2, '0')}-${half}`
+}
+
+/**
  * 사람만 비우고 자리는 남긴다 — 하위의 좌/우를 지키기 위한 '빈 자리'.
  * 직급을 `NONE` 으로 두므로 레그 카운팅이 건너뛰고, 오른쪽 패널도 알아서 감춘다.
  */
@@ -493,6 +504,7 @@ export default function App() {
           canUndo={history.length > 0}
           onEndEdit={handleEndEdit}
           periodLabel={formatPeriod(period)}
+          imageName={`팀-${periodStamp(period)}.jpg`}
           showIds={showOrgIds}
           onToggleShowIds={() => setShowOrgIds((on) => !on)}
         />
@@ -535,6 +547,7 @@ export default function App() {
           onSaveTree={handleSaveTree}
           onLoadTree={() => loadInputRef.current?.click()}
           periodLabel={formatPeriod(period)}
+          imageName={`팀목표-${periodStamp(period)}.jpg`}
           summaryOpen={summaryOpen}
           onToggleSummary={() => setSummaryOpen((open) => !open)}
           showIds={showEffectiveIds}
