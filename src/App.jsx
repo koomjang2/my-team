@@ -376,7 +376,12 @@ export default function App() {
     setNodes((prev) => prev.map((n) => (n.id === nodeId ? { ...n, ...patch } : n)))
   }
 
-  function handleSaveTree() {
+  /**
+   * 계보도를 JSON 으로 저장한다. 두 패널이 이 함수를 공용으로 쓰지만 파일이름은
+   * 그림 저장과 같은 규칙 — 어느 패널에서 눌렀는지에 따라 `팀-` / `팀목표-` 접두어만 다르다.
+   * (계보도 데이터 자체는 한 벌이라 어느 쪽에서 저장해도 내용은 같다)
+   */
+  function handleSaveTree(prefix = '팀') {
     try {
       // `ui` 는 계보도가 아니라 보기 취향이다. PV 최적화 시뮬레이터가 이 파일을
       // 불러올 때 ID 를 보일지 판단하는 데 쓰므로 파일에 함께 담는다.
@@ -389,9 +394,8 @@ export default function App() {
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
-      const half = period.half === 'first' ? '상반기' : '하반기'
       a.href = url
-      a.download = `실질계보도-${period.year}-${String(period.month).padStart(2, '0')}-${half}.json`
+      a.download = `${prefix}-${periodStamp(period)}.json`
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -497,7 +501,7 @@ export default function App() {
           onAdd={handleAdd}
           onRemove={handleRemove}
           onUpdate={handleUpdate}
-          onSaveTree={handleSaveTree}
+          onSaveTree={() => handleSaveTree('팀')}
           onLoadTree={() => loadInputRef.current?.click()}
           onResetTree={handleResetTree}
           onUndo={handleUndo}
@@ -544,7 +548,7 @@ export default function App() {
           selectedId={selectedId}
           onSelect={setSelectedId}
           rootNode={me}
-          onSaveTree={handleSaveTree}
+          onSaveTree={() => handleSaveTree('팀목표')}
           onLoadTree={() => loadInputRef.current?.click()}
           periodLabel={formatPeriod(period)}
           imageName={`팀목표-${periodStamp(period)}.jpg`}
