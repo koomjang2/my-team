@@ -5,18 +5,19 @@ import { rankDisplay } from './ranks.js'
  * 이식 직후 스낵바가 이 결과를 그대로 읽어 보여준다.
  *
  * 짝짓기가 이 파일의 전부다. 이식하면서 id 를 전부 새로 발급하므로(`graftSubtree`)
- * **id 로는 같은 사람을 찾을 수 없다.** 그래서 두 단계로 짝짓는다:
+ * **id 로는 같은 사람을 찾을 수 없다.** 그래서 세 단계로 짝짓는다:
  *
  *   1차 · 회원 ID — 양쪽에 다 적혀 있고 각각 한 명뿐일 때만. 자리를 옮겨도 따라간다.
- *   2차 · 자리    — 남은 사람끼리 접합점에서부터의 좌/우 경로가 같으면 짝으로 본다.
+ *   2차 · 이름    — 회원 ID 로 못 짝지은 사람 중, 양쪽에 그 이름이 **딱 한 번씩만**
+ *                  나오면 짝으로 본다. 이것도 자리를 옮겨도 따라간다 — 불러오는
+ *                  파일의 좌/우 배치가 내 것과 다른 경우가 흔해서, 이름이 같은데
+ *                  자리가 달라 못 알아보면 메모가 그냥 파일 것으로 덮인다.
+ *   3차 · 자리    — 그래도 남은 사람은 접합점에서부터의 좌/우 경로가 같으면 짝으로 본다
+ *                  (이름·회원 ID 가 둘 다 없거나, 동명이인이라 2차에서 걸러진 경우).
  *
- * 회원 ID 는 이 앱에서 비어 있는 일이 잦아 실제로는 2차가 주력이다. 대신 ID 를 적어 둔
- * 회원은 자리를 옮겨도 '삭제 + 추가' 가 아니라 '자리 이동'으로 잡힌다.
- *
- * **자리가 같다고 무조건 같은 사람은 아니다.** 옛 계보도의 좌 하위가 '나1' 인데 새
- * 계보도의 좌 하위가 'B' 라면, 나1 이 B 로 '변경'된 것이 아니라 나1 이 빠지고 B 가
- * 들어온 것이다. 그래서 이름이나 회원 ID 가 서로 **뚜렷이 다르면 짝짓지 않는다**
- * (`looksLikeSamePerson`). 한쪽이 비어 있으면 채워 넣은 것으로 보고 짝짓는다.
+ * 2·3차 모두 이름이나 회원 ID 가 **양쪽에 다 적혀 있는데 서로 다르면** 짝짓지
+ * 않는다(`looksLikeSamePerson`) — 동명이인의 회원 ID 가 다르면 진짜 다른 사람이다.
+ * 한쪽이 비어 있으면 뒤늦게 채워 넣은 것으로 보고 짝짓는다.
  */
 
 /**
@@ -82,18 +83,21 @@ function looksLikeSamePerson(a, b) {
   return true
 }
 
-/** 양쪽에 딱 한 번씩만 나오는 회원 ID 만 짝짓기에 쓴다 — 둘 이상이면 누가 누군지 알 수 없다 */
-function uniqueByMemberId(entries) {
+/** 양쪽에 딱 한 번씩만 나오는 값만 짝짓기에 쓴다 — 둘 이상이면 누가 누군지 알 수 없다 */
+function uniqueBy(entries, pick) {
   const seen = new Map()
   for (const e of entries) {
-    const id = (e.node.memberId ?? '').trim()
-    if (!id) continue
-    seen.set(id, seen.has(id) ? null : e) // 두 번째로 나오면 못 쓰는 것으로 표시
+    const key = pick(e)
+    if (!key) continue
+    seen.set(key, seen.has(key) ? null : e) // 두 번째로 나오면 못 쓰는 것으로 표시
   }
   const out = new Map()
-  for (const [id, e] of seen) if (e) out.set(id, e)
+  for (const [key, e] of seen) if (e) out.set(key, e)
   return out
 }
+
+const uniqueByMemberId = (entries) => uniqueBy(entries, (e) => (e.node.memberId ?? '').trim())
+const uniqueByName = (entries) => uniqueBy(entries, (e) => (e.node.name ?? '').trim())
 
 /**
  * 옛 사람들과 새 사람들을 짝짓는다 — 위에 적은 두 단계 그대로다.
@@ -109,6 +113,19 @@ export function matchByPath(oldEntries, newEntries) {
   const oldLeft = new Set(oldEntries)
   const newLeft = new Set(newEntries)
 
+  /*
+   * 접합점(경로 '')은 갈아 끼운 그 자리 자체라 다른 어떤 짝짓기보다 먼저, 무조건
+   * 서로 짝짓는다 — 안 그러면 이름·회원 ID 짝짓기가 전역으로 돌면서, 우연히 접합점과
+   * 이름(또는 회원 ID)이 같은 **엉뚱한 하위 사람**을 접합점 대신 채 갈 수 있다.
+   */
+  const oldJunction = oldEntries.find((e) => e.path === '')
+  const newJunction = newEntries.find((e) => e.path === '')
+  if (oldJunction && newJunction) {
+    pairs.push({ old: oldJunction, new: newJunction })
+    oldLeft.delete(oldJunction)
+    newLeft.delete(newJunction)
+  }
+
   // 1차 · 회원 ID 로 짝짓기 (자리를 옮겨도 따라간다)
   const oldById = uniqueByMemberId(oldEntries)
   const newById = uniqueByMemberId(newEntries)
@@ -120,14 +137,26 @@ export function matchByPath(oldEntries, newEntries) {
     newLeft.delete(newEntry)
   }
 
-  // 2차 · 남은 사람은 자리(경로)로 짝짓기
+  // 2차 · 이름으로 짝짓기 (역시 자리를 옮겨도 따라간다 — 양쪽에 그 이름이 한 번씩만 있을 때)
+  const oldByName = uniqueByName([...oldLeft])
+  const newByName = uniqueByName([...newLeft])
+  for (const [name, oldEntry] of oldByName) {
+    const newEntry = newByName.get(name)
+    if (!newEntry) continue
+    // 이름은 같아도 회원 ID 가 서로 다르면 동명이인이다 — 짝짓지 않는다
+    if (!looksLikeSamePerson(oldEntry.node, newEntry.node)) continue
+    pairs.push({ old: oldEntry, new: newEntry })
+    oldLeft.delete(oldEntry)
+    newLeft.delete(newEntry)
+  }
+
+  // 3차 · 그래도 남은 사람은 자리(경로)로 짝짓기 (접합점은 위에서 이미 처리했다)
   const newByPath = new Map()
   for (const e of newLeft) newByPath.set(e.path, e)
   for (const oldEntry of [...oldLeft]) {
     const newEntry = newByPath.get(oldEntry.path)
     if (!newEntry) continue
-    // 접합점(경로 '')은 갈아 끼운 그 자리 자체라 언제나 짝이다 — 이름이 달라도 같은 사람이다
-    if (oldEntry.path && !looksLikeSamePerson(oldEntry.node, newEntry.node)) continue
+    if (!looksLikeSamePerson(oldEntry.node, newEntry.node)) continue
     pairs.push({ old: oldEntry, new: newEntry })
     oldLeft.delete(oldEntry)
     newLeft.delete(newEntry)

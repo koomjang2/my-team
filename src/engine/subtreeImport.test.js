@@ -281,6 +281,63 @@ check('파일 쪽 이름이 비어 있으면 자리만 보고 합친다',
   graftSubtree(both, 'A', namelessFile, counter('u')).find((n) => n.parentId === 'A' && n.side === 'left').memo,
   '나1 에 대한 내 메모\n---\n이름 없이 온 사람')
 
+console.log('\n=== 자리가 달라도 이름이 같으면 동일인물로 본다 (자리 우선이던 문제 수정) ===')
+/*
+ * 파일의 계보도 배치가 내 것과 다른 게 흔하다 — '나1' 이 내 계보도에서는 A 의 좌 하위지만
+ * 파일에서는 A 의 **우** 하위로 들어와 있다. 자리(경로)만 보고 짝지으면 이 둘을 다른
+ * 사람으로 오인해 나1 의 메모가 사라지고 파일 메모로 덮인다 — 실제로 보고된 문제다.
+ */
+const movedNameFile = [
+  node('r', null, null, { name: 'A' }),
+  node('x', 'r', 'right', { name: '나1', memo: '자리 옮겨 온 나1 이 쓴 메모' }),
+]
+const movedMerged = graftSubtree(both, 'A', movedNameFile, counter('mv'))
+check('자리가 달라도 이름이 같으면 메모가 합쳐진다',
+  byName(movedMerged, '나1').memo, '나1 에 대한 내 메모\n---\n자리 옮겨 온 나1 이 쓴 메모')
+
+// 이름은 같아도 회원 ID 가 서로 다르면 동명이인이다 — 자리가 달라도 합치면 안 된다
+const bothWithNa1Id = both.map((n) => (n.id === 'na1' ? { ...n, memberId: '999' } : n))
+const movedDiffIdFile = [
+  node('r', null, null, { name: 'A' }),
+  node('x', 'r', 'right', { name: '나1', memberId: '888', memo: '동명이인의 메모' }),
+]
+check('이름이 같아도 회원 ID 가 다르면 동명이인이라 안 합친다',
+  byName(graftSubtree(bothWithNa1Id, 'A', movedDiffIdFile, counter('di')), '나1').memo, '동명이인의 메모')
+
+// 같은 이름이 양쪽에 둘 이상이면 누가 누군지 모르니 이름 짝짓기를 쓰지 않는다.
+// 자리(경로)로도 못 넘어간다 — 그 자리(우 하위)의 옛 이름은 '나2' 라 이름이 다르다.
+// 결국 아무와도 안 합쳐지고 파일 메모 그대로 들어간다 (지금까지와 같은 '짝 없음' 취급).
+const dupNameTree = [
+  ...both,
+  node('na3', 'na2', 'left', { name: '나1', memo: '또 다른 나1 메모' }), // 나1 이 계보도에 둘
+]
+const dupNameFile = [
+  node('r', null, null, { name: 'A' }),
+  node('x', 'r', 'right', { name: '나1', memo: '파일의 나1 메모' }),
+]
+check('이름이 겹치면 이름 짝짓기를 포기하고, 자리도 이름이 달라 안 맞아 짝을 못 찾는다',
+  byName(graftSubtree(dupNameTree, 'A', dupNameFile, counter('du')), '나1').memo,
+  '파일의 나1 메모')
+
+console.log('\n=== 짝짓기 순서 검증 (subtreeDiff — 접합점을 먼저 확정해 둔다) ===')
+/*
+ * 접합점(A)의 옛 이름이 하위로 들어오는 파일 회원의 이름과 우연히 같다.
+ * 이름 짝짓기가 접합점보다 먼저 전역으로 돌면 접합점이 그 하위와 엉뚱하게 짝지어질
+ * 수 있다 — 접합점은 항상 자리(경로 '')로 먼저 확정해 둔다.
+ */
+const junctionNameClash = graftSubtree(both, 'A', [
+  node('r', null, null, { name: '새이름' }),
+  node('b', 'r', 'left', { name: 'A' }), // 옛 접합점 이름과 우연히 같다
+], counter('jc'))
+check('접합점은 새 이름을 받는다 (하위와 안 뒤섞인다)',
+  junctionNameClash.find((n) => n.id === 'A').name, '새이름')
+check('하위 B 는 그대로 하위 자리에 있다',
+  junctionNameClash.find((n) => n.parentId === 'A' && n.side === 'left').name, 'A')
+
+const dMoved = diffSubtree(both, movedMerged, 'A')
+check('이름 짝짓기도 자리 이동으로 잡힌다 (회원 ID 와 같은 대접)',
+  dMoved.changed.find((x) => x.label === '나1')?.moved, true)
+
 console.log('\n=== 손대지 않는 레그의 메모는 새어 나가지 않는다 ===')
 /*
  * 좌라인만 갈아 끼우는데, **우측**(안 건드리는) 나2 와 파일 **좌측** 회원의 회원 ID 가 같다.
