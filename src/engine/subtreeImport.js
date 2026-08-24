@@ -1,4 +1,5 @@
 import { RANK_NONE, STATUS_ACTIVE } from './ranks.js'
+import { matchByPath, walkWithPaths } from './subtreeDiff.js'
 
 /**
  * 다른 사업자가 저장한 계보도 파일을, 내 계보도의 **고른 자리에 통째로 갈아 끼운다.**
@@ -16,6 +17,13 @@ import { RANK_NONE, STATUS_ACTIVE } from './ranks.js'
  *   parentId · side    — 파일 루트는 `null` 이라 안 갈면 트리가 두 동강 난다
  *   memo               — 내가 그 사람에 대해 적어 둔 관찰이라 파일 메모와 합친다
  * 나머지(이름·회원ID·명목직급·목표직급·PV)는 **파일이 이긴다** — 본인이 자기를 더 잘 안다.
+ *
+ * **메모는 하위도 합친다.** 접합점만 합쳐지던 시절이 있었는데, 그건 규칙이라기보다
+ * 접합점만 id 를 물려받아 살아남았기 때문이었다. 이제는 `subtreeDiff.js` 의 짝짓기로
+ * 없어질 사람과 들어올 사람을 견줘, 같은 사람이면 그 메모도 함께 합친다.
+ *
+ * **한쪽 라인만 갈아 끼울 수도 있다** (`side`). 반대쪽은 손도 대지 않는다 —
+ * `doomed` 에 넣지 않으므로 id 까지 그대로 살아남는다.
  */
 
 /** 옛 판본 파일에 빠진 칸이 있어도 카드가 깨지지 않게 채워 넣는 바닥값 */
@@ -130,6 +138,13 @@ export function mergeMemo(mine, theirs) {
   return `${a}\n---\n${b}`
 }
 
+/** 그 자리의 **한쪽 레그** — 그 자리의 좌(또는 우) 하위와 그 아래 전부 */
+export function sideDescendants(nodes, parentId, side) {
+  const child = nodes.find((n) => n.parentId === parentId && n.side === side)
+  if (!child) return []
+  return [child, ...collectDescendants(nodes, child.id)]
+}
+
 /** 그 자리 **아래** 회원들 (자기 자신은 빼고) */
 export function collectDescendants(nodes, rootId) {
   const out = []
@@ -151,21 +166,51 @@ export function collectDescendants(nodes, rootId) {
  * `makeId` 를 밖에서 받는 이유: 파일의 id 를 **전부 새로 발급**해야 하는데
  * (A 가 예전에 내 파일을 받아 고친 것이라면 id 가 글자 그대로 같을 수 있다),
  * 이 함수를 순수하게 두면 테스트에서 예측 가능한 id 를 넣어 검사할 수 있다.
+ *
+ * @param side `'all'` 이면 그 자리 아래 전부. `'left'`/`'right'` 면 그쪽 레그만 갈아 끼우고
+ *   **반대쪽은 손대지 않는다** — 파일에 그쪽이 비어 있으면 내 그쪽도 비워진다(파일이 이긴다).
  */
-export function graftSubtree(nodes, targetId, importedNodes, makeId) {
+export function graftSubtree(nodes, targetId, importedNodes, makeId, side = 'all') {
   const target = nodes.find((n) => n.id === targetId)
   if (!target) return nodes
 
   const importedRoot = importedNodes.find((n) => !n.parentId)
   if (!importedRoot) return nodes
 
+  // 한쪽만 불러올 때는 파일에서도 그쪽 레그만 떼어 온다
+  const keepImported = side === 'all'
+    ? importedNodes
+    : [importedRoot, ...sideDescendants(importedNodes, importedRoot.id, side)]
+
+  // 없어질 사람들. 반대쪽 레그는 여기 안 들어가므로 id 까지 그대로 살아남는다
+  const doomed = new Set(
+    (side === 'all'
+      ? collectDescendants(nodes, targetId)
+      : sideDescendants(nodes, targetId, side)
+    ).map((n) => n.id),
+  )
+  doomed.add(targetId)
+
+  /*
+   * 없어질 사람 중에 들어올 사람과 **같은 사람**이 있으면 그 메모를 물려준다.
+   * 짝짓기 범위를 `doomed` 로 반드시 좁혀야 한다 — `matchByPath` 의 1차(회원 ID)는
+   * 자리를 안 보고 전역으로 짝짓기 때문에, 안 그러면 **손대지도 않는 반대쪽 레그**의
+   * 회원이 회원 ID 가 같다는 이유로 자기 메모를 넘겨주고는 자신도 그대로 남아
+   * 같은 메모가 두 사람에게 겹쳐 적힌다.
+   */
+  const { pairs } = matchByPath(
+    walkWithPaths(nodes, targetId).filter((e) => e.path !== '' && doomed.has(e.node.id)),
+    walkWithPaths(keepImported, importedRoot.id).filter((e) => e.path !== ''),
+  )
+  const inheritedMemo = new Map(pairs.map((p) => [p.new.node.id, p.old.node.memo]))
+
   // 파일의 id 를 전부 새로 발급한다 — 접합점만 내 id 를 물려받는다
   const idMap = new Map()
-  for (const n of importedNodes) {
+  for (const n of keepImported) {
     idMap.set(n.id, n.id === importedRoot.id ? targetId : makeId())
   }
 
-  const grafted = importedNodes.map((n) => {
+  const grafted = keepImported.map((n) => {
     const isRoot = n.id === importedRoot.id
     return {
       ...NODE_DEFAULTS,
@@ -174,12 +219,14 @@ export function graftSubtree(nodes, targetId, importedNodes, makeId) {
       // 접합점만 내 자리 정보를 지킨다 — 나머지는 파일 안의 관계 그대로다
       parentId: isRoot ? target.parentId : idMap.get(n.parentId),
       side: isRoot ? target.side : n.side,
-      memo: isRoot ? mergeMemo(target.memo, n.memo) : (n.memo ?? ''),
+      memo: isRoot
+        ? mergeMemo(target.memo, n.memo)
+        : mergeMemo(inheritedMemo.get(n.id) ?? '', n.memo),
+      // 접합점은 파일 루트의 신원을 물려받은 실존 인물이다. 파일이 빈 자리 표시를
+      // 달고 있으면 `collapseVacated` 가 방금 꽂은 이 자리를 도로 걷어 가 버린다.
+      ...(isRoot ? { vacated: false } : {}),
     }
   })
-
-  const doomed = new Set(collectDescendants(nodes, targetId).map((n) => n.id))
-  doomed.add(targetId)
 
   return collapseVacated([...nodes.filter((n) => !doomed.has(n.id)), ...grafted])
 }

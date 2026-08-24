@@ -36,7 +36,7 @@ const COMPARED = [
 ]
 
 /** 접합점에서부터의 좌/우 경로. 접합점 자신은 `''` */
-function walkWithPaths(nodes, rootId) {
+export function walkWithPaths(nodes, rootId) {
   const out = []
   const stack = [{ id: rootId, path: '' }]
   while (stack.length) {
@@ -96,22 +96,22 @@ function uniqueByMemberId(entries) {
 }
 
 /**
- * @param before 이식 **전** 전체 배열
- * @param after  이식 **후** 전체 배열
- * @param junctionId 갈아 끼운 자리의 id (이식 전후로 같다 — 접합점은 id 를 물려받는다)
- * @returns {{changed: Array, added: Array, removed: Array}}
+ * 옛 사람들과 새 사람들을 짝짓는다 — 위에 적은 두 단계 그대로다.
+ *
+ * 이식(`subtreeImport.js`)도 메모를 넘겨받을 짝을 찾을 때 이 함수를 쓴다.
+ * 화면에 적히는 '같은 사람' 과 메모가 실제로 합쳐지는 '같은 사람' 이 서로 다른
+ * 셈법을 쓰면, 알림에 적힌 말과 벌어진 일이 어긋난다.
+ *
+ * @returns {{pairs: Array<{old, new}>, oldLeft: Set, newLeft: Set}} 짝 못 지은 쪽이 `*Left`
  */
-export function diffSubtree(before, after, junctionId) {
-  const olds = walkWithPaths(before, junctionId)
-  const news = walkWithPaths(after, junctionId)
-
+export function matchByPath(oldEntries, newEntries) {
   const pairs = []          // [{ old, new }]
-  const oldLeft = new Set(olds)
-  const newLeft = new Set(news)
+  const oldLeft = new Set(oldEntries)
+  const newLeft = new Set(newEntries)
 
   // 1차 · 회원 ID 로 짝짓기 (자리를 옮겨도 따라간다)
-  const oldById = uniqueByMemberId(olds)
-  const newById = uniqueByMemberId(news)
+  const oldById = uniqueByMemberId(oldEntries)
+  const newById = uniqueByMemberId(newEntries)
   for (const [id, oldEntry] of oldById) {
     const newEntry = newById.get(id)
     if (!newEntry) continue
@@ -133,6 +133,21 @@ export function diffSubtree(before, after, junctionId) {
     newLeft.delete(newEntry)
     newByPath.delete(oldEntry.path)
   }
+
+  return { pairs, oldLeft, newLeft }
+}
+
+/**
+ * @param before 이식 **전** 전체 배열
+ * @param after  이식 **후** 전체 배열
+ * @param junctionId 갈아 끼운 자리의 id (이식 전후로 같다 — 접합점은 id 를 물려받는다)
+ * @returns {{changed: Array, added: Array, removed: Array}}
+ */
+export function diffSubtree(before, after, junctionId) {
+  const { pairs, oldLeft, newLeft } = matchByPath(
+    walkWithPaths(before, junctionId),
+    walkWithPaths(after, junctionId),
+  )
 
   const changed = []
   for (const { old: o, new: n } of pairs) {

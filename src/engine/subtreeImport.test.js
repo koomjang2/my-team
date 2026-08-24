@@ -195,5 +195,123 @@ console.log('\n=== 아무것도 안 바뀌면 조용하다 ===')
 const d3 = diffSubtree(mine, mine, 'A')
 check('변경·추가·삭제 모두 없음', [d3.changed.length, d3.added.length, d3.removed.length], [0, 0, 0])
 
+/*
+ * 위의 `mine` 은 접합점 A 의 좌측(나1)만 있어 한쪽 레그만 갈아 끼우는 일을 검사할 수 없다.
+ * 양쪽이 다 찬 계보도를 따로 하나 세운다.
+ *
+ *   나 ─좌─ 가
+ *     └우─ A ─좌─ 나1 ─좌─ 나1a
+ *            └우─ 나2
+ */
+const both = [
+  node('me', null, null, { name: '나', rank: 'DM' }),
+  node('ga', 'me', 'left', { name: '가' }),
+  node('A', 'me', 'right', { name: 'A', memo: '내가 본 A' }),
+  node('na1', 'A', 'left', { name: '나1', memo: '나1 에 대한 내 메모' }),
+  node('na1a', 'na1', 'left', { name: '나1a' }),
+  node('na2', 'A', 'right', { name: '나2', memo: '나2 에 대한 내 메모' }),
+]
+
+console.log('\n=== 좌라인만 이식 — 반대쪽은 손도 대지 않는다 ===')
+const onlyLeft = graftSubtree(both, 'A', aFile.nodes, counter('L'), 'left')
+const L = (id) => onlyLeft.find((n) => n.id === id)
+
+check('우 하위 나2 는 id 그대로 살아 있다', !!L('na2'), true)
+check('나2 의 윗 회원도 그대로', L('na2').parentId, 'A')
+check('나2 의 메모도 손대지 않았다', L('na2').memo, '나2 에 대한 내 메모')
+check('옛 좌 하위는 사라진다', [!!L('na1'), !!L('na1a')], [false, false])
+check('좌 하위는 파일의 B', onlyLeft.find((n) => n.parentId === 'A' && n.side === 'left').name, 'B')
+check('파일의 우측(C·E·F)은 안 들어온다',
+  onlyLeft.filter((n) => ['C', 'E', 'F'].includes(n.name)).length, 0)
+check('전체 = 나·가·A·나2 넷 + 파일 좌측 B·D 둘', onlyLeft.length, 6)
+check('접합점 자신은 여전히 파일이 이긴다', [L('A').name, L('A').rank, L('A').memberPvMan], ['A', 'DM', 12])
+check('접합점 메모는 그대로 합친다', L('A').memo, '내가 본 A\n---\nA 가 쓴 메모')
+
+console.log('\n=== 우라인만 이식 ===')
+const onlyRight = graftSubtree(both, 'A', aFile.nodes, counter('R'), 'right')
+check('좌 하위 나1·나1a 는 id 그대로 살아 있다',
+  [!!onlyRight.find((n) => n.id === 'na1'), !!onlyRight.find((n) => n.id === 'na1a')], [true, true])
+check('옛 우 하위 나2 는 사라진다', onlyRight.some((n) => n.id === 'na2'), false)
+check('우 하위는 파일의 C', onlyRight.find((n) => n.parentId === 'A' && n.side === 'right').name, 'C')
+check('전체 = 나·가·A·나1·나1a 다섯 + 파일 우측 C·E·F 셋', onlyRight.length, 8)
+
+console.log('\n=== 파일에 그쪽이 비어 있으면 내 그쪽도 비워진다 (파일이 이긴다) ===')
+// 파일 루트에 좌측 자식이 없다 — 화면에서는 이 버튼이 아예 눌리지 않지만 엔진은 단순하게 둔다
+const rightOnlyFile = [
+  node('r', null, null, { name: 'A' }),
+  node('c', 'r', 'right', { name: 'C' }),
+]
+const emptied = graftSubtree(both, 'A', rightOnlyFile, counter('E'), 'left')
+check('접합점 좌측이 빈다', emptied.some((n) => n.parentId === 'A' && n.side === 'left'), false)
+check('우측은 그대로', emptied.find((n) => n.id === 'na2').name, '나2')
+check('파일의 우측도 안 들어온다', emptied.some((n) => n.name === 'C'), false)
+
+console.log('\n=== 하위 메모도 합친다 (당사자만 합치던 것을 하위까지) ===')
+// 파일의 좌 하위가 내 '나1' 과 같은 사람이다 (이름이 같다)
+const sameNameFile = [
+  node('r', null, null, { name: 'A', memo: 'A 가 쓴 메모' }),
+  node('b', 'r', 'left', { name: '나1', memo: '나1 이 쓴 메모' }),
+  node('c', 'r', 'right', { name: '새사람', memo: '새사람 메모' }),
+]
+const merged = graftSubtree(both, 'A', sameNameFile, counter('m'))
+const byName = (arr, name) => arr.find((n) => n.name === name)
+check('같은 사람으로 잡힌 하위는 메모가 합쳐진다',
+  byName(merged, '나1').memo, '나1 에 대한 내 메모\n---\n나1 이 쓴 메모')
+check('짝이 없던 하위는 파일 메모만 (지금까지와 같다)', byName(merged, '새사람').memo, '새사람 메모')
+check('그래도 id 는 새로 발급된다', byName(merged, '나1').id.startsWith('m'), true)
+
+// 이름이 뚜렷이 다르면 같은 사람이 아니다 — 남의 메모를 물려주면 안 된다
+const otherNameFile = [
+  node('r', null, null, { name: 'A' }),
+  node('b', 'r', 'left', { name: '전혀다른사람', memo: '파일 메모' }),
+]
+check('자리가 같아도 다른 사람이면 안 합친다',
+  byName(graftSubtree(both, 'A', otherNameFile, counter('o')), '전혀다른사람').memo, '파일 메모')
+
+/*
+ * 파일 쪽에 이름도 회원 ID 도 없으면 **자리만 보고 같은 사람으로 친다**
+ * (`looksLikeSamePerson` 의 '한쪽이 비어 있으면 뒤늦게 채운 것으로 본다').
+ * 알림에서만 쓰이던 어림이 이제 메모를 실제로 옮기므로 방향을 못 박아 둔다.
+ */
+const namelessFile = [
+  node('r', null, null, { name: 'A' }),
+  node('b', 'r', 'left', { name: '', memo: '이름 없이 온 사람' }),
+]
+check('파일 쪽 이름이 비어 있으면 자리만 보고 합친다',
+  graftSubtree(both, 'A', namelessFile, counter('u')).find((n) => n.parentId === 'A' && n.side === 'left').memo,
+  '나1 에 대한 내 메모\n---\n이름 없이 온 사람')
+
+console.log('\n=== 손대지 않는 레그의 메모는 새어 나가지 않는다 ===')
+/*
+ * 좌라인만 갈아 끼우는데, **우측**(안 건드리는) 나2 와 파일 **좌측** 회원의 회원 ID 가 같다.
+ * 짝짓기를 `doomed` 로 좁히지 않으면 나2 의 메모가 파일 좌측 회원에게 복사되면서
+ * 나2 자신도 그 메모를 그대로 들고 남아 — 같은 메모가 두 사람에게 겹쳐 적힌다.
+ */
+const bothWithId = both.map((n) => (n.id === 'na2' ? { ...n, memberId: '111' } : n))
+const idClashFile = [
+  node('r', null, null, { name: 'A' }),
+  node('b', 'r', 'left', { name: 'B', memberId: '111', memo: 'B 가 쓴 메모' }),
+]
+const noLeak = graftSubtree(bothWithId, 'A', idClashFile, counter('k'), 'left')
+check('안 건드린 나2 의 메모는 그대로', noLeak.find((n) => n.id === 'na2').memo, '나2 에 대한 내 메모')
+check('파일의 B 에게 새어 들어가지 않았다', byName(noLeak, 'B').memo, 'B 가 쓴 메모')
+
+console.log('\n=== 파일의 빈 자리 표시가 접합점을 걷어 가지 않는다 ===')
+// 파일 루트에 `vacated: true` 가 묻어 있고 좌라인만 고르면 자식이 하나로 줄어
+// `collapseVacated` 가 방금 꽂은 접합점을 도로 걷어 갈 수 있었다
+const vacatedRootFile = [
+  node('r', null, null, { name: 'A', vacated: true }),
+  node('b', 'r', 'left', { name: 'B' }),
+  node('c', 'r', 'right', { name: 'C' }),
+]
+const kept = graftSubtree(both, 'A', vacatedRootFile, counter('v'), 'left')
+check('접합점은 살아 있다', !!kept.find((n) => n.id === 'A'), true)
+check('빈 자리 표시는 떨어져 나갔다', kept.find((n) => n.id === 'A').vacated, false)
+
+console.log('\n=== 5번째 인자를 안 주면 지금까지와 똑같다 ===')
+check('side 를 생략하면 전체 이식',
+  JSON.stringify(graftSubtree(both, 'A', aFile.nodes, counter('d'))),
+  JSON.stringify(graftSubtree(both, 'A', aFile.nodes, counter('d'), 'all')))
+
 console.log(`\n${fail ? `${fail}건 실패 / ` : ''}${pass}건 통과`)
 if (fail) process.exit(1)

@@ -3,8 +3,11 @@ import { ChevronDown, ChevronUp } from 'lucide-react'
 import OrgTreePanel from './components/OrgTreePanel.jsx'
 import EffectiveTreePanel from './components/EffectiveTreePanel.jsx'
 import TopBar from './components/TopBar.jsx'
+import ImportConfirmDialog from './components/ImportConfirmDialog.jsx'
 import { computeEffectiveRanks, analyzeGap } from './engine/rankEngine.js'
-import { collapseVacated, collectDescendants, graftSubtree, validateLineageFile } from './engine/subtreeImport.js'
+import {
+  collapseVacated, collectDescendants, graftSubtree, sideDescendants, validateLineageFile,
+} from './engine/subtreeImport.js'
 import { diffSubtree } from './engine/subtreeDiff.js'
 import { RANK_NONE, STATUS_ACTIVE } from './engine/ranks.js'
 
@@ -125,6 +128,10 @@ export default function App() {
   const importInputRef = useRef(null)
   const importTargetRef = useRef(null)
   const [importSummary, setImportSummary] = useState(null)
+  // 파일을 다 읽고 나서 '모두/좌라인만/우라인만' 을 묻는 동안 들고 있는 값.
+  // 계보도(`before`)는 **여기 담지 않는다** — 묻는 사이에 계보도가 바뀌면 낡은
+  // 스냅샷으로 덮어써 그 편집이 조용히 사라진다. 누르는 순간 최신 것을 읽는다.
+  const [importConfirm, setImportConfirm] = useState(null)
 
   // 맨 위 입력 메뉴 접기 — 좁은 화면에서 계보도에 자리를 내주기 위한 것이라 취향을 기억해 둔다
   const [menuOpen, setMenuOpen] = useState(() => {
@@ -471,7 +478,7 @@ export default function App() {
   }
 
   /**
-   * 고른 자리와 그 아래를 파일 내용으로 갈아 끼운다.
+   * 파일을 읽어 검증한 뒤 **묻기만 한다** — 실제 이식은 확인창의 버튼이 한다.
    * 검증에서 걸리면 **계보도는 한 글자도 바뀌지 않고** 무엇이 잘못됐는지만 알린다.
    */
   function handleImportFile(event) {
@@ -496,32 +503,42 @@ export default function App() {
         return
       }
 
-      const before = state.nodes
-      const target = before.find((n) => n.id === targetId)
+      const target = state.nodes.find((n) => n.id === targetId)
       if (!target) return
 
-      const targetName = (target.name ?? '').trim() || '이름 없음'
-      const fileName = (checked.root.name ?? '').trim() || '이름 없음'
-      const lines = [
-        `'${targetName}' 자리를 파일 내용으로 바꿉니다.`,
-        '',
-        `  지금 계보도 : ${targetName} (아래 ${collectDescendants(before, targetId).length}명)`,
-        `  불러올 파일 : ${fileName} (아래 ${checked.nodes.length - 1}명)`,
-      ]
-      // 파일이 다른 보름을 계획한 것이면 짚어 준다 — 기간 자체는 가져오지 않는다
-      if (parsed.period && !samePeriod(parsed.period, state.period)) {
-        lines.push(`  파일 기간   : ${formatPeriod(parsed.period)} ← 지금 화면과 다릅니다`)
-      }
-      lines.push('', '되돌리기로 되돌릴 수 있습니다.')
-      if (!window.confirm(lines.join('\n'))) return
-
-      pushHistory()
-      const after = graftSubtree(before, targetId, checked.nodes, makeId)
-      setNodes(after)
-      setImportSummary({ nodeId: targetId, name: fileName, diff: diffSubtree(before, after, targetId) })
+      setImportSummary(null) // 지난 이식 알림이 확인창 밑에 겹쳐 남지 않게
+      setImportConfirm({
+        targetId,
+        checked,
+        targetName: (target.name ?? '').trim() || '이름 없음',
+        fileName: (checked.root.name ?? '').trim() || '이름 없음',
+        currentCount: collectDescendants(state.nodes, targetId).length,
+        fileTotalCount: checked.nodes.length - 1,
+        fileLeftCount: sideDescendants(checked.nodes, checked.root.id, 'left').length,
+        fileRightCount: sideDescendants(checked.nodes, checked.root.id, 'right').length,
+        // 파일이 다른 보름을 계획한 것이면 짚어 준다 — 기간 자체는 가져오지 않는다
+        periodWarning: parsed.period && !samePeriod(parsed.period, state.period)
+          ? formatPeriod(parsed.period)
+          : null,
+      })
     }
     reader.onerror = () => setImportSummary({ nodeId: targetId, error: '파일 읽기에 실패했습니다.' })
     reader.readAsText(file, 'utf-8')
+  }
+
+  /** 확인창에서 고른 대로 갈아 끼운다 — `side` 는 `'all'` · `'left'` · `'right'` */
+  function handleConfirmImport(side) {
+    const { targetId, checked, fileName } = importConfirm
+    setImportConfirm(null)
+
+    // 묻는 사이에 계보도가 바뀌었을 수 있다 — 파일을 읽던 때가 아니라 **지금** 것을 쓴다
+    const before = state.nodes
+    if (!before.some((n) => n.id === targetId)) return
+
+    pushHistory()
+    const after = graftSubtree(before, targetId, checked.nodes, makeId, side)
+    setNodes(after)
+    setImportSummary({ nodeId: targetId, name: fileName, diff: diffSubtree(before, after, targetId) })
   }
 
   function handleResetTree() {
@@ -549,6 +566,14 @@ export default function App() {
         className="hidden"
         onChange={handleImportFile}
       />
+
+      {importConfirm && (
+        <ImportConfirmDialog
+          {...importConfirm}
+          onPick={handleConfirmImport}
+          onCancel={() => setImportConfirm(null)}
+        />
+      )}
 
 
       <header className="no-print flex flex-shrink-0 items-center gap-2 border-b bg-white px-3 py-2 shadow-sm">
