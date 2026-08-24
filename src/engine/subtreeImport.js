@@ -62,7 +62,7 @@ export function collapseVacated(nodes) {
  * 남의 파일을 내 계보도 **한가운데**에 꽂는 일이라 기존 '열기'(통째로 바꾸기)보다
  * 엄격하게 본다. 여기서 걸리면 배열은 **한 글자도 바뀌지 않는다.**
  *
- * @returns {{ok: true, nodes: Array, root: object}} | {{ok: false, error: string}}
+ * @returns {{ok: true, nodes: Array, root: object, savedAt: string|null}} | {{ok: false, error: string}}
  */
 export function validateLineageFile(parsed) {
   const nodes = parsed?.nodes
@@ -121,7 +121,7 @@ export function validateLineageFile(parsed) {
     return { ok: false, error: '최상단에서 이어지지 않는 회원이 있습니다 (순환이거나 떨어진 무리).' }
   }
 
-  return { ok: true, nodes, root: roots[0] }
+  return { ok: true, nodes, root: roots[0], savedAt: parsed.savedAt ?? null }
 }
 
 /**

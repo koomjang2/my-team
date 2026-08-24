@@ -69,6 +69,12 @@ check('같은 id 가 두 번', validateLineageFile({
   nodes: [node('a', null, null), node('a', 'a', 'left')],
 }).ok, false)
 
+console.log('\n=== savedAt — 저장 시각을 있는 그대로 넘긴다 ===')
+check('savedAt 없는 파일은 null', validateLineageFile(aFile).savedAt, null)
+check('savedAt 있으면 그대로', validateLineageFile({ ...aFile, savedAt: '2026-08-20T14:32:00.000Z' }).savedAt, '2026-08-20T14:32:00.000Z')
+check('savedAt 이 이상한 값이어도 검증은 통과', validateLineageFile({ ...aFile, savedAt: '이상한값' }).ok, true)
+check('savedAt 이 이상한 값이면 그대로 넘긴다(표시 쪽에서 거른다)', validateLineageFile({ ...aFile, savedAt: '이상한값' }).savedAt, '이상한값')
+
 console.log('\n=== 이식 — 자리 정보는 내 것, 나머지는 파일 것 ===')
 const after = graftSubtree(mine, 'A', aFile.nodes, counter())
 const at = (id) => after.find((n) => n.id === id)

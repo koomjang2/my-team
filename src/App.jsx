@@ -538,7 +538,12 @@ export default function App() {
     pushHistory()
     const after = graftSubtree(before, targetId, checked.nodes, makeId, side)
     setNodes(after)
-    setImportSummary({ nodeId: targetId, name: fileName, diff: diffSubtree(before, after, targetId) })
+    setImportSummary({
+      nodeId: targetId,
+      name: fileName,
+      diff: diffSubtree(before, after, targetId),
+      savedAt: checked.savedAt,
+    })
   }
 
   function handleResetTree() {
