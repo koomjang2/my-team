@@ -2,18 +2,6 @@ import { useState } from 'react'
 import { ChevronDown, ChevronUp, X } from 'lucide-react'
 import { RANK_COLORS } from '../engine/ranks.js'
 
-/** 이보다 오래된 저장분이면 경고 스타일로 강조한다 */
-const STALE_THRESHOLD_MS = 3 * 24 * 60 * 60 * 1000 // 3일(72시간)
-
-/** `2026-08-20T14:32:00.000Z` 꼴 → `8월 20일 14:32`. 못 읽으면 null */
-function formatSavedAt(iso) {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return null
-  const hh = String(d.getHours()).padStart(2, '0')
-  const mm = String(d.getMinutes()).padStart(2, '0')
-  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${hh}:${mm}`
-}
-
 /**
  * 계보도를 이식한 직후 **그 회원 카드 바로 밑**에 뜨는 알림 — 무엇이 달라졌는지 알려준다.
  * 화면 아래에 두면 계보도에 가려 안 보였다. 팬 레이어 안에 있어 화면을 끌면 함께 따라온다.
@@ -87,39 +75,11 @@ function Entry({ sectionKey, item }) {
   )
 }
 
-/** 불러온 파일이 언제 저장됐는지 — 오래됐으면 경고색으로 강조한다 */
-function SavedAtLine({ name, savedAt }) {
-  const text = savedAt ? formatSavedAt(savedAt) : null
-
-  if (!text) {
-    return (
-      <div className="border-b border-gray-100 px-2 py-1 text-[10px] text-gray-400">
-        저장 시각 정보 없음
-      </div>
-    )
-  }
-
-  const stale = Date.now() - new Date(savedAt).getTime() > STALE_THRESHOLD_MS
-
-  return (
-    <div
-      className={
-        stale
-          ? 'border-b border-amber-200 bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-700'
-          : 'border-b border-gray-100 px-2 py-1 text-[10px] text-gray-500'
-      }
-    >
-      {name}님 계보도 · {text} 저장분
-      {stale && ' — 오래된 파일입니다'}
-    </div>
-  )
-}
-
 export default function ImportSummaryBar({ summary, onClose }) {
   const [open, setOpen] = useState(true) // 이식 직후에는 펼쳐서 보여준다 — 그러라고 띄운 것이다
   if (!summary) return null
 
-  const { diff, name, error, savedAt } = summary
+  const { diff, name, error } = summary
 
   const closeBtn = (
     <button
@@ -170,8 +130,6 @@ export default function ImportSummaryBar({ summary, onClose }) {
         )}
         {closeBtn}
       </div>
-
-      <SavedAtLine name={name} savedAt={savedAt} />
 
       <div className="flex flex-wrap gap-1 px-2 py-1.5">
         {total === 0

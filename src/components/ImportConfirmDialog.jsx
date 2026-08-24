@@ -1,6 +1,18 @@
 import { useEffect } from 'react'
 import { FolderInput } from 'lucide-react'
 
+/** 이보다 오래된 저장분이면 경고 스타일로 강조한다 */
+const STALE_THRESHOLD_MS = 3 * 24 * 60 * 60 * 1000 // 3일(72시간)
+
+/** `2026-08-20T14:32:00.000Z` 꼴 → `8월 20일 14:32`. 못 읽으면 null */
+function formatSavedAt(iso) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return null
+  const hh = String(d.getHours()).padStart(2, '0')
+  const mm = String(d.getMinutes()).padStart(2, '0')
+  return `${d.getMonth() + 1}월 ${d.getDate()}일 ${hh}:${mm}`
+}
+
 /**
  * 계보도 이식 직전에 뜨는 확인창. **이 저장소에서 유일한 전체화면 모달이다.**
  *
@@ -18,9 +30,12 @@ import { FolderInput } from 'lucide-react'
  */
 export default function ImportConfirmDialog({
   targetName, fileName, currentCount, fileTotalCount,
-  fileLeftCount, fileRightCount, periodWarning,
+  fileLeftCount, fileRightCount, periodWarning, savedAt,
   onPick, onCancel,
 }) {
+  const savedAtText = savedAt ? formatSavedAt(savedAt) : null
+  const savedAtStale = !!savedAtText && Date.now() - new Date(savedAt).getTime() > STALE_THRESHOLD_MS
+
   // 편집창의 esc(`keyboard.js`)는 편집창이 열려 있을 때만 듣는데, 이식을 시작하면
   // 그 창은 이미 닫혀 있다. 그래서 이 창이 제 esc 를 스스로 듣는다.
   useEffect(() => {
@@ -56,6 +71,11 @@ export default function ImportConfirmDialog({
           <dd className="text-gray-800">{targetName} (아래 {currentCount}명)</dd>
           <dt className="text-gray-500">불러올 파일</dt>
           <dd className="text-gray-800">{fileName} (아래 {fileTotalCount}명)</dd>
+          <dt className={savedAtStale ? 'text-amber-700' : 'text-gray-500'}>저장 시각</dt>
+          <dd className={savedAtStale ? 'font-semibold text-amber-700' : 'text-gray-800'}>
+            {savedAtText ? `${savedAtText} 저장분` : '정보 없음'}
+            {savedAtStale && ' — 오래된 파일입니다'}
+          </dd>
           {periodWarning && (
             <>
               <dt className="text-amber-700">파일 기간</dt>

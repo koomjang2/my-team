@@ -96,6 +96,19 @@ function periodStamp(period) {
 }
 
 /**
+ * 저장 파일 이름 맨 끝에 붙는 '월일시분' 조각. 예: `08260245`
+ * 같은 보름 안에서 여러 번 저장해도 파일이 서로 안 겹치고, 가장 최근 것이
+ * 무엇인지 파일 목록에서 바로 보인다.
+ */
+function saveTimeStamp(date) {
+  const mm = String(date.getMonth() + 1).padStart(2, '0')
+  const dd = String(date.getDate()).padStart(2, '0')
+  const hh = String(date.getHours()).padStart(2, '0')
+  const mi = String(date.getMinutes()).padStart(2, '0')
+  return `${mm}${dd}${hh}${mi}`
+}
+
+/**
  * 사람만 비우고 자리는 남긴다 — 하위의 좌/우를 지키기 위한 '빈 자리'.
  * 직급을 `NONE` 으로 두므로 레그 카운팅이 건너뛰고, 오른쪽 패널도 알아서 감춘다.
  */
@@ -410,16 +423,20 @@ export default function App() {
 
   /**
    * 계보도를 JSON 으로 저장한다. 두 패널이 이 함수를 공용으로 쓰지만 파일이름은
-   * `{최상단 회원 이름}-{팀|팀목표}-{연-월-반기}.json` 꼴이다 — 어느 패널에서 눌렀는지에
-   * 따라 접두어만 다르다. (계보도 데이터 자체는 한 벌이라 어느 쪽에서 저장해도 내용은 같다)
+   * `{최상단 회원 이름}-{팀|팀목표}-{연-월-반기}-{월일시분}.json` 꼴이다 — 어느
+   * 패널에서 눌렀는지에 따라 접두어만 다르다. (계보도 데이터 자체는 한 벌이라
+   * 어느 쪽에서 저장해도 내용은 같다) 파일이름의 월일시분은 `payload.savedAt`
+   * 과 같은 시각이다 — 이식 확인창이 보여 주는 저장 시각과 파일 목록에서
+   * 눈으로 보이는 시각이 어긋나면 안 되기 때문이다.
    */
   function handleSaveTree(prefix = '팀') {
     try {
+      const now = new Date()
       // `ui` 는 계보도가 아니라 보기 취향이다. PV 최적화 시뮬레이터가 이 파일을
       // 불러올 때 ID 를 보일지 판단하는 데 쓰므로 파일에 함께 담는다.
       const payload = {
         format: FILE_FORMAT,
-        savedAt: new Date().toISOString(),
+        savedAt: now.toISOString(),
         ...state,
         ui: { showOrgIds, showEffectiveIds },
       }
@@ -427,7 +444,7 @@ export default function App() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${rootNameForFile(me)}-${prefix}-${periodStamp(period)}.json`
+      a.download = `${rootNameForFile(me)}-${prefix}-${periodStamp(period)}-${saveTimeStamp(now)}.json`
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -520,6 +537,8 @@ export default function App() {
         periodWarning: parsed.period && !samePeriod(parsed.period, state.period)
           ? formatPeriod(parsed.period)
           : null,
+        // 좌/우/취소 를 고르는 이 확인창에서 바로 봐야 한다 — 고르고 나서 알려주면 늦다
+        savedAt: checked.savedAt,
       })
     }
     reader.onerror = () => setImportSummary({ nodeId: targetId, error: '파일 읽기에 실패했습니다.' })
@@ -538,12 +557,7 @@ export default function App() {
     pushHistory()
     const after = graftSubtree(before, targetId, checked.nodes, makeId, side)
     setNodes(after)
-    setImportSummary({
-      nodeId: targetId,
-      name: fileName,
-      diff: diffSubtree(before, after, targetId),
-      savedAt: checked.savedAt,
-    })
+    setImportSummary({ nodeId: targetId, name: fileName, diff: diffSubtree(before, after, targetId) })
   }
 
   function handleResetTree() {
